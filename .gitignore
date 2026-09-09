@@ -1,0 +1,21 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+.vercel/
+
+# local verification artifacts
+shots/
+
+# source assets kept out of the deploy (the cropped/derived versions live in public/)
+background.mp4
+ascii-image-phosphor-quartz.png
+DepartureMono-1.500/
+
+# editor / OS
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.local
