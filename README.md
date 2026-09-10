@@ -1,75 +1,117 @@
-# attaquarks portfolio — starter
+# attaquarks — portfolio
 
-A working scrollytelling starter for an AI/ML portfolio, built around a
-"living system" metaphor: a generative particle field in the hero,
-a terminal-style tech-stack reveal, and a project grid that visibly
-settles into place as you scroll.
+Personal site for **Atta Ur Rehman**: AI Engineer, Product Designer,
+Terminal Enthusiast. One continuous scroll, five movements, no page loads.
 
-## Stack (all verified current as of Sep 2026)
+> Systems that think, tools that work.
 
-- **Vite + React + TypeScript**
-- **Tailwind CSS + shadcn/ui conventions** — `components.json`, the
-  `cn()` utility, and the CSS-variable color system are all set up and
-  mapped to the site's own palette (not shadcn's default zinc theme)
-- **GSAP + ScrollTrigger** — 100% free since Webflow's acquisition, including every plugin
-- **Lenis** — smooth-scroll, synced to GSAP's ticker
-- **Motion** installed but not yet wired in — use it for gesture-driven
-  micro-interactions (hover states, the terminal cursor, nav transitions)
-- A hand-rolled canvas particle field for the hero (`LivingField.tsx`) —
-  no external 3D asset pipeline needed to get something alive on screen
-- **A real 3D tilt card** (`components/ui/3d-card.tsx`) — mouse-tracked
-  perspective transform, same technique as Aceternity's 3D Card Effect,
-  wired into the project cards
+## Running it
 
-## Important: finish the shadcn setup on your machine
-
-This sandbox can't reach `ui.shadcn.com` (network policy), so the
-shadcn scaffolding here was hand-built to match what `init` produces.
-Once you unzip this locally, run:
-
-```
-npx shadcn@latest init
-```
-
-It will detect `components.json` already exists and ask before
-overwriting — say no, the config here is already correct and tuned to
-this palette. From then on, `npx shadcn@latest add <component>` and
-`npx shadcn@latest add @aceternity/<component>` will work normally.
-
-## Run it
-
-```
+```bash
 npm install
-npm run dev
+npm run dev      # vite dev server
+npm run build    # -> dist/
+npm run preview  # serve dist/ locally
 ```
 
-## Where to go next (in Claude Code)
+## How the page is put together
 
-1. **Swap the hero field for a Spline scene.** Design a 3D object in
-   Spline (a floating shape, a neural-net-like structure), export as
-   React, and drop `<Spline scene="...">` in where `<LivingField />`
-   sits now. Keep LivingField as a lightweight fallback/loading state.
-2. **Wire Motion into hover/tap states** — the terminal dots, project
-   card hover, nav links. Small, gesture-answering motion only (per the
-   design brief: motion that responds to an action, not scattered
-   ambient effects).
-3. **Add a real project detail view.** Right now cards link out to
-   GitHub — consider an in-page expand/modal with more detail, a demo
-   GIF, or an embedded Loom.
-4. **Update `src/data/projects.ts`** whenever your pinned GitHub repos
-   change — it's the single source of truth for the projects section.
-5. **Typography**: currently Space Grotesk + JetBrains Mono, loaded
-   from Google Fonts. If you want something more distinctive, browse
-   freefaces.gallery for a display face and swap the `<link>` in
-   `index.html` + the `--font-display` variable in `styles.css`.
-6. **Deploy**: `npm run build` outputs to `dist/` — push to Vercel or
-   Netlify directly from the repo.
+The whole site is a single scroll timeline. Nothing here uses a scroll
+listener of its own — Lenis drives GSAP's ticker (`useSmoothScroll`), and
+every scene registers a ScrollTrigger against that one source of truth.
 
-## Notes on the design choices
+| Act | Section | What scroll does |
+| --- | --- | --- |
+| — | Hero | Content lifts, blurs and hands off to the next act |
+| 001 | Stack | Scroll position is the playhead for a terminal typing itself |
+| 002 | Projects | A camera flies a path through an R3F constellation behind the cards |
+| 003 | Approach | The three roles, as numbered rows |
+| 004 | About | A portrait resolves out of 96 tiles, then the copy lands on it |
+| 005 | Contact | Availability, then the addresses |
 
-- Palette avoids both common AI-generated tells (cream+terracotta,
-  flat near-black+neon): warm charcoal base, bioluminescent
-  cyan-green + amber accents.
-- One deliberate motion moment (the boot-sequence terminal) rather
-  than fade-up animations on every section.
-- Off-center hero layout, not the centered-hero default.
+### The act structure
+
+Scroll-pinned sections are **tall wrappers holding `position: sticky`
+children**, not GSAP `pin: true`. Sticky needs no pin-spacer, so there is no
+injected element whose height has to stay in sync with Lenis' smoothed
+scroll — and `prefers-reduced-motion` collapses the entire structure back to
+ordinary flow with two CSS rules.
+
+Act height is not a free parameter. A sticky child of height `100svh`
+unsticks at `height - 100svh` of scroll, which is exactly where a
+`top top` → `bottom bottom` scrub ends. **The act's extra height *is* the
+length of its timeline.**
+
+Two consequences worth knowing before editing `styles.css`:
+
+- `body { overflow-x: clip }`, never `hidden`. With `hidden`, the used value
+  of `overflow-y` becomes `auto`, `<body>` turns into a scroll container, and
+  every `position: sticky` on the page silently breaks.
+- Scrubbed timelines use `gsap.fromTo` with explicit end values, not
+  `gsap.from`. Cleanup leaves elements at the *from* state, and a `from`
+  recreated by StrictMode's second effect pass reads that as its destination
+  and animates 0 → 0.
+
+### The background
+
+The wallpaper is [`fluid-bg`](https://www.npmjs.com/package/fluid-bg),
+mounted once at the root and running behind every act. Two non-obvious
+decisions are baked into `FluidBackground.tsx`:
+
+- **Not `fixed` mode.** The package's `fixed` option mounts at `z-index: -1`,
+  and this site paints `--ink` on both `html` and `body` — the layer renders
+  perfectly and is covered by an opaque page. It mounts non-fixed into a host
+  we own at `z-index: 0`, with `main` lifted to `1`.
+- **`mode: 'iframe'`, not native.** Native mode blocks the renderer main
+  thread for ~11.5s on a cold shader cache (measured on Intel HD 630 /
+  ANGLE D3D11; 53ms warm). iframe mode mounts in 4ms because the shader
+  compile happens in the embed's own renderer process. A poster generated
+  from a real frame of the live render paints first, and the embed crossfades
+  over it on load.
+
+Under `prefers-reduced-motion`, no engine is mounted at all — the layer falls
+back to that poster, which is a genuine still of the same piece.
+
+## Stack
+
+- **Vite + React 19 + TypeScript**
+- **GSAP + ScrollTrigger** — free including plugins since the Webflow acquisition
+- **Lenis** — smooth scroll, synced to GSAP's ticker
+- **three / R3F / drei** — the project constellation, lazy-loaded because it is
+  the heaviest thing on the page and belongs to act two
+- **Tailwind + shadcn/ui conventions** — mapped to this site's palette, not
+  shadcn's default theme
+- A hand-rolled canvas particle field for the hero (`LivingField.tsx`)
+
+## Design notes
+
+- **Palette.** Warm charcoal (`--ink #12110f`), bioluminescent mint
+  (`--glow #4fe8c4`), amber (`--amber #f2a65a`). Chosen to avoid both common
+  AI-generated tells — cream + terracotta, and flat near-black + neon.
+- **Type.** Space Grotesk for display, JetBrains Mono for code, and
+  [Departure Mono](https://departuremono.com/) for short caps-and-digit
+  strings only — section numbers, the status rail, window chrome, tag pills.
+  It is drawn on a coarse pixel grid: superb at label size, tiring at
+  paragraph length, so it is opted into per string rather than inherited.
+- **Motion.** Every animation respects the `prefers-reduced-motion` block in
+  `src/styles.css`. Reduced motion is a complete, settled version of the page,
+  not a degraded one.
+
+## Tooling
+
+`scripts/shot.mjs` drives headless Chrome over CDP to take deterministic
+screenshots at a given scroll offset — Chrome's `--screenshot` flag can't
+scroll, resize, or wait for a WebGL frame.
+
+```bash
+node scripts/shot.mjs --url http://localhost:4174/ --out shots/about.png \
+  --w 1440 --h 900 --scroll 6529
+```
+
+`--scroll` takes `0..1` as a fraction of scrollable height, a raw px value,
+or a CSS selector. Chrome is reused across runs via a fixed debugging port.
+
+## Content
+
+`src/data/projects.ts` is the single source of truth for the projects
+section — update it when the pinned repos change.
