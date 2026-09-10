@@ -106,25 +106,26 @@ export function HeroScene() {
           <div className="hero-intro">
             <BootLine lines={BOOT_LINES} />
           </div>
-          {/* The positioning, stated as three brackets rather than a sentence.
-              It's the one line on the page where Departure Mono is doing real
-              work: three short labels in caps are exactly what a pixel-grid
+          {/* The positioning, stated as three brackets rather than a sentence,
+              and sized to be read rather than skimmed — this is the line that
+              says what I am, so it leads. Departure Mono is doing real work
+              here: three short labels in caps are exactly what a pixel-grid
               face is legible at, and the brackets make them read as a spec
               sheet instead of a slogan. */}
           <p className="hero-roles hero-intro">
             <span>[ AI Engineer ]</span>
             <span>[ Product Designer ]</span>
-            <span>[ Terminal enthusiast ]</span>
+            <span>[ Terminal Enthusiast ]</span>
           </p>
           <h1 className="hero-intro">
-            I build systems that reason,
+            Systems that think,
             <br />
-            not just chat.
+            tools that work.
           </h1>
           <p className="lede hero-intro">
-            Atta Ur Rehman — agentic workflows, retrieval that preserves context, and the
-            interfaces that make all of it usable. Engineering and design as one job,
-            mostly done from a terminal.
+            Atta Ur Rehman — AI &amp; full-stack developer building agentic workflows,
+            retrieval that preserves context, and the interfaces that make all of it
+            usable. Engineering and design as one job, mostly done from a terminal.
           </p>
         </div>
 

@@ -106,7 +106,6 @@ export function AboutStage() {
             decoding="async"
           />
           <span className="about-portrait-scan" aria-hidden />
-          <span className="about-portrait-scrim" aria-hidden />
 
           {/* The tiles sit above the portrait and below the copy: they are what
               the image is arriving *out of*, so they have to occlude it. */}
@@ -116,6 +115,13 @@ export function AboutStage() {
             ))}
           </div>
         </div>
+
+        {/* Outside the plate on purpose. As a child it was clipped to the
+            plate's box, and its darkest stop landed on the plate's left edge as
+            a hard vertical seam running the full height of the viewport. Spanning
+            the stage, the same ramp starts off the left of the screen and there
+            is no edge to see. */}
+        <span className="about-portrait-scrim" aria-hidden />
 
         <div className="section-inner about-overlay">
           <div className="kicker about-block">

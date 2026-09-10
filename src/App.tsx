@@ -119,7 +119,7 @@ export default function App() {
         </section>
 
         <footer>
-          <span className="mono-terminal">© {new Date().getFullYear()} Atta Ur Rehman</span>
+          <span>© {new Date().getFullYear()} Atta Ur Rehman</span>
           <span className="footer-links">
             <a href="https://github.com/attaquarks" target="_blank" rel="noreferrer">
               github.com/attaquarks

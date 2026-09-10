@@ -24,7 +24,7 @@ const ROLES: Role[] = [
     marks: ['Interface systems', 'Motion', 'Design tokens', 'Prototyping'],
   },
   {
-    title: 'Terminal enthusiast',
+    title: 'Terminal Enthusiast',
     blurb:
       'Nearly all of this was built in a shell, and it shows in the work: small composable tools, everything scriptable, state you can inspect. A good CLI is the same discipline as a good API with the ceremony removed.',
     marks: ['zsh', 'tmux', 'Docker', 'Makefiles'],
