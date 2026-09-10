@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { LivingField } from './LivingField';
-import { FluidBackground } from './FluidBackground';
 import { BootLine } from './BootLine';
 import { prefersReducedMotion } from '../hooks/useReducedMotion';
 
@@ -33,7 +32,6 @@ export function HeroScene() {
 
     const content = act.querySelector('.hero-content');
     const cue = act.querySelector('.scroll-cue');
-    const fluid = act.querySelector('.fluid-layer');
     const field = act.querySelector('.hero-canvas');
     const intro = act.querySelectorAll('.hero-intro');
 
@@ -80,12 +78,13 @@ export function HeroScene() {
       // gap is what makes a scrollytelling page feel like it has dead scroll in
       // it. Ending exactly at the release means there is never a held blank.
       .to(content, { y: -80, opacity: 0, filter: 'blur(6px)', duration: 1 }, 0)
-      // Both atmosphere layers thin out but neither goes to zero. A sticky
-      // section that empties completely spends its exit sliding a blank
-      // rectangle up the screen; keeping a trace means the hero is still
-      // *something* while the next act arrives underneath it.
+      // The particle field thins out but doesn't go to zero. A sticky section
+      // that empties completely spends its exit sliding a blank rectangle up the
+      // screen; keeping a trace means the hero is still *something* while the
+      // next act arrives underneath it. (The fluid wallpaper is no longer part
+      // of this timeline — it sits behind every act now and runs its own scroll
+      // response, so the hero releasing must not switch it off.)
       .to(field, { opacity: 0.4, duration: 1 }, 0)
-      .to(fluid, { opacity: 0.34, scale: 1.08, duration: 1 }, 0)
       // The cue has done its job the instant you start scrolling; holding it any
       // longer is the interface talking over itself.
       .to(cue, { opacity: 0, duration: 0.08 }, 0);
@@ -100,7 +99,6 @@ export function HeroScene() {
   return (
     <div className="act act-hero" ref={actRef}>
       <section className="hero">
-        <FluidBackground />
         <LivingField />
         <div className="hero-veil" aria-hidden />
 
@@ -108,14 +106,25 @@ export function HeroScene() {
           <div className="hero-intro">
             <BootLine lines={BOOT_LINES} />
           </div>
+          {/* The positioning, stated as three brackets rather than a sentence.
+              It's the one line on the page where Departure Mono is doing real
+              work: three short labels in caps are exactly what a pixel-grid
+              face is legible at, and the brackets make them read as a spec
+              sheet instead of a slogan. */}
+          <p className="hero-roles hero-intro">
+            <span>[ AI Engineer ]</span>
+            <span>[ Product Designer ]</span>
+            <span>[ Terminal enthusiast ]</span>
+          </p>
           <h1 className="hero-intro">
             I build systems that reason,
             <br />
             not just chat.
           </h1>
           <p className="lede hero-intro">
-            Atta Ur Rehman — AI &amp; full-stack developer. Agentic workflows, retrieval that
-            preserves context, and full-stack interfaces that make complex AI systems easy to use.
+            Atta Ur Rehman — agentic workflows, retrieval that preserves context, and the
+            interfaces that make all of it usable. Engineering and design as one job,
+            mostly done from a terminal.
           </p>
         </div>
 

@@ -3,6 +3,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Departure Mono — a pixel-grid terminal face. Self-hosted because it is not on
+   Google Fonts, woff2 first with woff behind it for the handful of engines that
+   still need it.
+   `swap` rather than `block`: everywhere this font is used, JetBrains Mono is
+   the fallback in the stack, so the flash is mono-to-mono at a similar width —
+   invisible in practice, and far better than holding the boot line blank. */
+@font-face {
+  font-family: "Departure Mono";
+  src:
+    url("/fonts/DepartureMono-Regular.woff2") format("woff2"),
+    url("/fonts/DepartureMono-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --ink: #12110f;
   --ink-raised: #1a1815;
@@ -15,6 +31,12 @@
 
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* Deliberately a third face, not a replacement for --font-mono. Departure
+     Mono is a 6×11 pixel-grid design: superb as a label, a counter or a
+     terminal chrome line, actively hard to read at paragraph length or above
+     ~1rem where the pixel steps start to show. Every use of this token is a
+     short string in caps or digits — never body copy, never a heading. */
+  --font-terminal: "Departure Mono", "JetBrains Mono", ui-monospace, monospace;
   --font-sans: var(--font-display);
   --font-heading: var(--font-display);
 
@@ -109,16 +131,31 @@ body {
      With no timelines, they'd be several viewports of empty scrolling — so the
      whole structure collapses back into ordinary flow. */
   .act-hero,
-  .act-stack {
+  .act-stack,
+  .act-about {
     height: auto;
   }
 
   .act-hero .hero,
-  .act-stack .stack-section {
+  .act-stack .stack-section,
+  .act-about .about-stage {
     position: relative;
     top: auto;
     height: auto;
     min-height: 0;
+  }
+
+  /* Collapsed to normal flow, the stage has no fixed height for an absolutely
+     positioned plate to fill, so the portrait goes back to being a block the
+     copy sits on top of. The mosaic is cleared by the component itself. */
+  .act-about .about-stage {
+    display: block;
+    padding: clamp(5rem, 11vh, 8rem) var(--gutter);
+  }
+
+  .act-about .about-plate {
+    position: absolute;
+    inset: 0;
   }
 
   /* A progress meter with nothing smoothing it just twitches per wheel tick. */
@@ -135,9 +172,12 @@ body {
     opacity: 0.5;
   }
 
-  .fluid-media {
-    /* No drifting light source. Hold one frame. */
-    animation: none;
+  /* No engine is mounted at all under reduced motion (see FluidBackground) —
+     the layer falls back to its poster, which is a real frame of the same
+     piece. Removing it entirely would strip the page's only colour; a still
+     generative frame is a legitimate wallpaper. */
+  .fluid-layer {
+    opacity: 0.34;
   }
 }
 
@@ -147,6 +187,15 @@ a {
 
 .mono {
   font-family: var(--font-mono);
+}
+
+/* The pixel face, for short strings only. Departure Mono is drawn on a coarse
+   grid — it is superb at caps, digits and brackets at label size, and tiring at
+   anything longer, so it is opted into per-string rather than set anywhere as an
+   inherited family. Tracking is added back because the grid is tight. */
+.mono-terminal {
+  font-family: var(--font-terminal);
+  letter-spacing: 0.06em;
 }
 
 /* Palette-consistent focus ring. Keyboard users are getting the same --glow
@@ -218,62 +267,70 @@ section {
 
 /* ---------- Fluid atmosphere ---------- */
 
+/* Fixed, not absolute, and mounted once at the root rather than inside the
+   hero: this is the room the whole site sits in, so it must not scroll away
+   with any one section.
+
+   z-index 0 is deliberate and is the entire trick. <html> and <body> both paint
+   an opaque --ink; anything at a negative z-index renders behind that and is
+   invisible regardless of its own opacity. 0 sits above the page background,
+   and `main` is lifted to 1 so every section still covers it. */
 .fluid-layer {
-  position: absolute;
+  position: fixed;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
   opacity: var(--fluid-opacity, 1);
+  /* A real frame of the same piece, pre-dimmed to match the live layer's
+     treatment, painted from CSS with no JavaScript in the way. It is what makes
+     the first frame of the page look finished, and it is what remains if the
+     embed is slow, blocked, or switched off for reduced motion. */
+  background: url("/fluid-poster.jpg") center / cover no-repeat;
+  /* The canvas is a live surface behind everything; promoting it once keeps
+     section compositing off its back. */
+  will-change: opacity;
 }
 
-/* Replaced-element trap, again: <video> and <img> carry an intrinsic 300x150,
-   and an absolutely-positioned replaced box with `width: auto` resolves to that
-   and drops the conflicting edge (CSS 2.1 §10.3.8). Explicit sizing is not
-   optional here. */
-.fluid-media {
-  position: absolute;
-  /* Over-scaled and pushed right so the loop's hard black lens edge lands
-     off-canvas and the bright core sits opposite the text, which is bottom-left. */
-  top: -26%;
-  left: 20%;
-  width: 106%;
-  height: 150%;
-  object-fit: cover;
-  /* Blur softens h264 gradient banding as much as it softens the bloom; the
-     hue shift and desaturation pull Fluid's MINT toward --glow so the light
-     belongs to this palette rather than sitting on top of it. */
-  filter: blur(18px) saturate(0.6) hue-rotate(-8deg) brightness(0.85);
-  /* Emitted light on charcoal, not a wallpaper behind it. */
-  mix-blend-mode: screen;
-  opacity: 0.5;
-  -webkit-mask-image: radial-gradient(
-    58% 62% at 62% 26%,
-    #000 0%,
-    rgba(0, 0, 0, 0.7) 44%,
-    transparent 78%
-  );
-  mask-image: radial-gradient(
-    58% 62% at 62% 26%,
-    #000 0%,
-    rgba(0, 0, 0, 0.7) 44%,
-    transparent 78%
-  );
-}
-
-/* Sibling of the media, not a child: a dark scrim inside a screen-blended box
-   would composite to nothing. This is what keeps charcoal the dominant value
-   and the lower-left corner readable. */
-.fluid-scrim {
+/* The package's own wrapper — it holds the embed plus the blur/dim treatment.
+   Held back until the embed has had a moment to paint, so the crossfade never
+   hands the poster over to a blank rectangle. */
+.fluid-layer > div {
   position: absolute;
   inset: 0;
-  background: radial-gradient(
-    130% 95% at 22% 100%,
-    var(--ink) 0%,
-    rgba(18, 17, 15, 0.55) 45%,
-    rgba(18, 17, 15, 0) 82%
-  );
+  opacity: 0;
+  transition: opacity 900ms var(--ease-out);
 }
+
+.fluid-layer[data-live="true"] > div {
+  opacity: 1;
+}
+
+/* The wallpaper still needs a value floor under the type, and a full-bleed flat
+   scrim would kill the piece. A vignette darkens the edges and the bottom —
+   where copy lives — while leaving the centre bloom intact. */
+.fluid-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      118% 88% at 50% 34%,
+      transparent 34%,
+      rgba(18, 17, 15, 0.42) 76%,
+      rgba(18, 17, 15, 0.72) 100%
+    ),
+    linear-gradient(to bottom, rgba(18, 17, 15, 0.12) 0%, rgba(18, 17, 15, 0.5) 100%);
+}
+
+/* Content rides above the wallpaper. Without this the fixed layer at z-index 0
+   would paint over any section that establishes no stacking context of its own. */
+main {
+  position: relative;
+  z-index: 1;
+}
+
 
 /* ---------- Hero ---------- */
 
@@ -293,18 +350,34 @@ section {
 }
 
 /* Sits above the particle field and below the copy, so the text has a value
-   floor to sit on no matter where the particles or the bloom happen to be. */
+   floor to sit on no matter where the bloom happens to be.
+
+   It returns to fully transparent at the section's own bottom edge, which is
+   the whole reason it's shaped this way. The wallpaper behind it is fixed and
+   continuous down the entire page; a veil that ended on solid --ink would draw
+   a hard horizontal line across it at the exact pixel the hero stops clipping,
+   and that line is visible for the whole handoff. The floor is therefore an
+   ellipse pooled under the copy plus a band that fades out before it reaches
+   the edge — no boundary for the eye to catch. */
 .hero-veil {
   position: absolute;
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  background: linear-gradient(
-    to top,
-    var(--ink) 0%,
-    rgba(18, 17, 15, 0.82) 30%,
-    rgba(18, 17, 15, 0) 68%
-  );
+  background:
+    radial-gradient(
+      92% 58% at 26% 84%,
+      rgba(18, 17, 15, 0.9) 0%,
+      rgba(18, 17, 15, 0.52) 46%,
+      rgba(18, 17, 15, 0) 74%
+    ),
+    linear-gradient(
+      to top,
+      rgba(18, 17, 15, 0) 0%,
+      rgba(18, 17, 15, 0.62) 13%,
+      rgba(18, 17, 15, 0.46) 42%,
+      rgba(18, 17, 15, 0) 76%
+    );
 }
 
 .hero-content {
@@ -341,6 +414,25 @@ section {
   font-weight: 600;
   margin: 0.4em 0 0.3em;
   letter-spacing: -0.02em;
+}
+
+/* Three labels, not a sentence. Departure Mono at label size with generous
+   tracking — the pixel grid is legible here and says "spec sheet" rather than
+   "tagline", which is the difference between stating a position and selling it. */
+.hero-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+  margin: 0.9rem 0 0;
+  font-family: var(--font-terminal);
+  font-size: clamp(0.72rem, 1vw, 0.84rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+
+.hero-roles span:first-child {
+  color: var(--glow);
 }
 
 .hero p.lede {
@@ -523,13 +615,126 @@ section {
   }
 }
 
+/* ---------- Status rail ----------
+   Instrumentation, not navigation: where the work happens, the time there right
+   now, and how far down the page you are. It sits at the top edge at the same
+   inset as the spine so the two read as one frame around the content. */
+
+.status-rail {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 45;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: clamp(0.9rem, 2.4vh, 1.4rem) clamp(0.9rem, 2.2vw, 2.25rem);
+  pointer-events: none;
+  font-family: var(--font-terminal);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  /* Not a bar: a rail with no background at all, so the wallpaper runs behind
+     it uninterrupted. The text carries its own contrast instead. */
+  text-shadow: 0 1px 12px rgba(18, 17, 15, 0.9);
+  /* Arrives with the page rather than sitting there from frame zero, matching
+     the hero's own load-in. */
+  animation: rail-in 700ms var(--ease-out) 260ms both;
+}
+
+@keyframes rail-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.status-rail-meters {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.status-rail-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The one moving thing in the rail. A clock that ticks says "someone is awake
+   there"; a pulse next to it says the page is live rather than a screenshot. */
+.status-rail-pip {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--glow);
+  box-shadow: 0 0 8px 1px rgba(79, 232, 196, 0.5);
+  animation: pip-pulse 2.6s var(--ease-in-out) infinite;
+}
+
+@keyframes pip-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Tabular figures, so the percentage doesn't shuffle its own width every time a
+   digit changes. Departure Mono is already fixed-pitch; this guards the
+   fallback face during the font swap. */
+.status-rail-scroll {
+  font-variant-numeric: tabular-nums;
+  color: var(--paper);
+  opacity: 0.75;
+}
+
+@media (max-width: 640px) {
+  /* The location line is the first thing to go — the clock says most of it, and
+     a wrapped rail over the hero headline is worse than no rail. */
+  .status-rail-where {
+    display: none;
+  }
+
+  .status-rail {
+    justify-content: flex-end;
+  }
+}
+
 /* ---------- Section headers ---------- */
 
 .kicker {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
   font-family: var(--font-mono);
   font-size: 0.8rem;
   color: var(--amber);
   margin-bottom: 1rem;
+}
+
+/* Zero-padded and set in the pixel face: the number is a coordinate, and
+   `001` reads as one because it is padded to a fixed width. Digits are the
+   single best argument for Departure Mono on this page — every glyph is on the
+   same grid, so a column of them lines up perfectly. */
+.kicker-index {
+  font-family: var(--font-terminal);
+  font-size: 0.92em;
+  letter-spacing: 0.12em;
+  color: var(--glow);
+  /* A rule between the number and the label, drawn with a border so it stays
+     glued to the baseline of the text rather than floating. */
+  padding-right: 0.7rem;
+  border-right: 1px solid var(--line);
 }
 
 h2.section-title {
@@ -572,12 +777,16 @@ h2.section-title {
   opacity: 0.4;
 }
 
+/* Window chrome, so it gets the pixel face — this is the one string on the
+   terminal that is furniture rather than content, and the swap makes that
+   distinction visible without adding a single new colour. */
 .terminal-title {
   margin-left: auto;
-  font-size: 0.7em;
+  font-family: var(--font-terminal);
+  font-size: 0.72em;
+  letter-spacing: 0.08em;
   color: var(--paper-dim);
   opacity: 0.65;
-  letter-spacing: 0.02em;
 }
 
 .terminal-body {
@@ -721,125 +930,392 @@ h2.section-title {
   border-radius: 4px;
 }
 
-/* ---------- About ---------- */
+/* ---------- Approach ---------- */
 
-.about-grid {
+/* Rows on rules, not a card grid. Three cards side by side would ask the reader
+   to compare three options; these aren't alternatives, they're one person read
+   top to bottom, which is what a numbered list says and a grid doesn't. */
+.role-list {
+  list-style: none;
+  margin: 2.5rem 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.role-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: clamp(2rem, 5vw, 4.5rem);
-  align-items: center;
+  grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 15rem);
+  gap: clamp(1rem, 3vw, 3rem);
+  align-items: start;
+  padding: clamp(1.6rem, 3.4vh, 2.4rem) 0;
+  border-bottom: 1px solid var(--line);
+  /* Only the hairlines and the accent move on hover. Rows that lift or tint
+     their whole background turn a reading surface into a control panel. */
+  transition: border-color 260ms var(--ease-out);
 }
 
-.about-copy .lede {
-  font-size: clamp(1rem, 1.5vw, 1.15rem);
+.role-row:hover {
+  border-bottom-color: rgba(79, 232, 196, 0.3);
+}
+
+.role-index {
+  font-family: var(--font-terminal);
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  color: var(--glow-dim);
+  padding-top: 0.45rem;
+  transition: color 260ms var(--ease-out);
+}
+
+.role-row:hover .role-index {
+  color: var(--glow);
+}
+
+.role-title {
+  font-size: clamp(1.3rem, 2.2vw, 1.75rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.6rem;
+}
+
+.role-blurb {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.62;
   color: var(--paper-dim);
-  max-width: 46ch;
-  line-height: 1.6;
-  margin: 0;
+  max-width: 52ch;
 }
 
-.ascii-portrait {
+.role-marks {
+  list-style: none;
   margin: 0;
-  width: 100%;
-  max-width: 400px;
-  justify-self: end;
+  padding: 0.5rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-family: var(--font-terminal);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-/* Owns the ink backdrop the image screens against, and clips the bloom and the
-   scanlines so neither reaches the caption. */
-.ascii-portrait-frame {
-  position: relative;
-  display: block;
-  aspect-ratio: 680 / 682;
+.role-marks li {
   border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--ink);
+  border-radius: 4px;
+  padding: 0.3em 0.6em;
+  color: var(--paper-dim);
+  transition:
+    border-color 260ms var(--ease-out),
+    color 260ms var(--ease-out);
 }
 
-.ascii-portrait img {
-  position: relative;
-  display: block;
+/* Staggered by an inline transition-delay so the marks light along the row
+   rather than all at once — the same idea as the stack terminal typing, at a
+   twentieth of the cost. */
+.role-row:hover .role-marks li {
+  border-color: rgba(79, 232, 196, 0.28);
+  color: var(--paper);
+}
+
+@media (max-width: 860px) {
+  .role-row {
+    grid-template-columns: 3rem minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .role-marks {
+    grid-column: 2;
+    padding-top: 1rem;
+  }
+}
+
+/* ---------- About ----------
+   The portrait is the stage. It's pinned for the whole act while a mosaic of
+   ink tiles clears off it, and the copy lands on top once it has resolved. */
+
+.act-about {
+  height: 260svh;
+}
+
+.about-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--gutter);
+}
+
+/* Capped rather than edge-to-edge: the source is a 680×682 square, and on an
+   ultrawide monitor a full-bleed `cover` throws away everything but a letterbox
+   band across the middle of the face. 1500px is where it stops being a portrait
+   and starts being a texture. */
+.about-plate {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100%, 1500px);
+  pointer-events: none;
+}
+
+.about-portrait {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* The head sits in the upper half of the source, so a centred crop cuts the
+     hair off on any landscape viewport. Pulling the window up keeps the whole
+     head and drops the empty desk at the bottom. */
+  object-position: 50% 16%;
   /* The render itself is untouched. Flatten it to luminance, then remap that
      luminance onto the --glow hue, so a finished asset joins the palette at the
      compositing layer instead of being re-exported.
 
-     Brightness and saturation are held low on purpose. Screening a full-value
-     image against a near-black page makes it the brightest thing on the whole
-     site by a wide margin — it stopped reading as a portrait in this palette and
-     started reading as a backlit photograph shouting over the section it belongs
-     to. Dimmed to roughly a third, it sits behind the copy where it belongs and
-     the mint reads as a phosphor tint rather than a colour cast. */
-  filter: grayscale(1) sepia(1) hue-rotate(122deg) saturate(1.05) brightness(0.54)
-    contrast(1.02);
-  opacity: 0.72;
-  /* No `isolation: isolate` on the frame, on purpose — screening against the
-     ink backdrop is what drops the render's near-black ground out to charcoal
+     Held much darker than a foreground image would be: this one has type on top
+     of it for the whole act, and anything brighter turns the paragraph into
+     something you have to work to read. */
+  filter: grayscale(1) sepia(1) hue-rotate(122deg) saturate(1.1) brightness(0.4)
+    contrast(1.12);
+  opacity: 0.62;
+  /* No `isolation: isolate` on the plate, on purpose — screening against the
+     ink page is what drops the render's near-black ground out to charcoal
      rather than leaving it as a visible rectangle. */
   mix-blend-mode: screen;
-  will-change: clip-path;
-}
-
-/* Falls the edges off into the frame so the portrait ends on a gradient rather
-   than a hard rectangle — the same reason the fluid layer is masked. Kept light:
-   the subject's jacket is already the darkest part of the image, so a strong
-   vignette stacks on top of it and crushes the lower third to a black band. */
-.ascii-portrait-vignette {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    124% 118% at 50% 46%,
-    transparent 58%,
-    rgba(18, 17, 15, 0.3) 86%,
-    rgba(18, 17, 15, 0.6) 100%
+  /* Dissolves the crop into the wallpaper instead of ending on four hard edges.
+     This is the difference between "a photo placed behind the text" and "the
+     section is made of this image". */
+  -webkit-mask-image: radial-gradient(
+    76% 72% at 50% 42%,
+    #000 42%,
+    rgba(0, 0, 0, 0.55) 72%,
+    transparent 100%
   );
-}
-
-.ascii-portrait-bloom {
-  position: absolute;
-  inset: -10%;
-  pointer-events: none;
-  background: radial-gradient(
-    50% 50% at 50% 42%,
-    rgba(79, 232, 196, 0.09),
-    transparent 72%
+  mask-image: radial-gradient(
+    76% 72% at 50% 42%,
+    #000 42%,
+    rgba(0, 0, 0, 0.55) 72%,
+    transparent 100%
   );
+  will-change: transform;
 }
 
-.ascii-portrait-scan {
+/* Carries the texture that says "render" — the raster has to survive the
+   dimming, or the portrait just reads as a dark photograph. */
+.about-portrait-scan {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background: repeating-linear-gradient(
     to bottom,
-    rgba(18, 17, 15, 0.34) 0 1px,
+    rgba(18, 17, 15, 0.36) 0 1px,
     transparent 1px 3px
   );
-  /* Carries more of the texture now that the image underneath is dimmer — the
-     raster is what says "render", and it has to survive the dimming. */
-  opacity: 0.72;
+  opacity: 0.6;
 }
 
-.ascii-portrait figcaption {
-  margin-top: 0.8rem;
-  font-size: 0.7rem;
+/* The value floor for the copy. Weighted to the left and the bottom, where the
+   text column actually is, so the right-hand side of the face stays open. */
+.about-portrait-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to right,
+      rgba(18, 17, 15, 0.88) 0%,
+      rgba(18, 17, 15, 0.62) 42%,
+      rgba(18, 17, 15, 0.18) 72%,
+      rgba(18, 17, 15, 0.34) 100%
+    ),
+    linear-gradient(
+      to top,
+      rgba(18, 17, 15, 0.72) 0%,
+      rgba(18, 17, 15, 0.1) 40%,
+      rgba(18, 17, 15, 0.5) 100%
+    );
+}
+
+/* The tiles the portrait arrives out of. Above the image, below the copy —
+   they have to occlude what they are revealing. 96 of them: 12 × 8 wide, 8 × 12
+   narrow, which keeps a tile roughly square at either breakpoint. */
+.about-mosaic {
+  --mosaic-cols: 12;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--mosaic-cols), 1fr);
+  pointer-events: none;
+}
+
+.about-tile {
+  background: var(--ink);
+  /* A hairline of the tile's own colour on every edge. Without it, sub-pixel
+     grid seams let thin lines of the image through before a tile has cleared,
+     and the mosaic reads as a mesh laid over the picture instead of as the
+     picture being withheld. */
+  outline: 1px solid var(--ink);
+  will-change: opacity;
+}
+
+.about-overlay {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.about-overlay .section-title {
+  max-width: 16ch;
+}
+
+.about-overlay .lede {
+  font-size: clamp(1rem, 1.5vw, 1.15rem);
   color: var(--paper-dim);
-  opacity: 0.7;
+  max-width: 48ch;
+  line-height: 1.62;
+  margin: 0;
+}
+
+.about-block {
+  will-change: transform, opacity;
+}
+
+.about-facts {
+  list-style: none;
+  margin: clamp(1.6rem, 4vh, 2.4rem) 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+  max-width: 46ch;
+}
+
+.about-facts li {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr);
+  gap: 1rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.about-fact-key {
+  font-family: var(--font-terminal);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--glow-dim);
+  padding-top: 0.15em;
+}
+
+.about-fact-value {
+  color: var(--paper-dim);
 }
 
 @media (max-width: 860px) {
-  .about-grid {
-    grid-template-columns: 1fr;
+  .about-mosaic {
+    --mosaic-cols: 8;
   }
 
-  .ascii-portrait {
-    justify-self: start;
-    max-width: 320px;
+  .about-facts li {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
   }
+}
+
+/* ---------- Contact ---------- */
+
+.contact-block {
+  margin-top: 2rem;
+}
+
+.availability {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 2.5rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid rgba(79, 232, 196, 0.26);
+  border-radius: 999px;
+  background: rgba(79, 232, 196, 0.06);
+  font-family: var(--font-terminal);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--paper);
+}
+
+.availability-pip {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--glow);
+  box-shadow: 0 0 10px 2px rgba(79, 232, 196, 0.45);
+  animation: pip-pulse 2.6s var(--ease-in-out) infinite;
+}
+
+.channel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+/* Full-width rows rather than buttons. By the time someone reaches the end of a
+   page this long they have already decided; what they need is the address at a
+   size they can hit without aiming, not a call to action styled to persuade. */
+.channel-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 2.5rem;
+  align-items: baseline;
+  gap: 1rem;
+  padding: clamp(1.1rem, 2.6vh, 1.7rem) 0;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 260ms var(--ease-out);
+}
+
+.channel-row:hover {
+  border-bottom-color: rgba(79, 232, 196, 0.34);
+}
+
+.channel-label {
+  font-size: clamp(1.4rem, 3vw, 2.1rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: color 220ms var(--ease-out);
+}
+
+.channel-row:hover .channel-label {
+  color: var(--glow);
+}
+
+.channel-handle {
+  font-family: var(--font-terminal);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+
+.channel-arrow {
+  justify-self: end;
+  font-size: 1.2rem;
+  color: var(--paper-dim);
+  transition:
+    transform 320ms var(--ease-out),
+    color 220ms var(--ease-out);
+}
+
+.channel-row:hover .channel-arrow {
+  transform: translateX(6px);
+  color: var(--glow);
 }
 
 /* ---------- Footer ---------- */

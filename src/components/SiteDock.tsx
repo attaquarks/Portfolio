@@ -5,6 +5,7 @@ import {
   IconBrandGithub,
   IconBrandLinkedin,
   IconFolders,
+  IconMail,
   IconTerminal2,
   IconUser,
 } from '@tabler/icons-react';
@@ -12,10 +13,14 @@ import { FloatingDock } from './ui/floating-dock';
 
 gsap.registerPlugin(ScrollTrigger);
 
+// Four destinations and two addresses. Approach is deliberately left out — it
+// sits between Projects and About in the reading order, and a dock that lists
+// every heading stops being navigation and becomes a table of contents.
 const ITEMS = [
   { title: 'Stack', href: '#stack', icon: <IconTerminal2 className="dock-icon" /> },
   { title: 'Projects', href: '#projects', icon: <IconFolders className="dock-icon" /> },
   { title: 'About', href: '#about', icon: <IconUser className="dock-icon" /> },
+  { title: 'Contact', href: '#contact', icon: <IconMail className="dock-icon" /> },
   {
     title: 'GitHub',
     href: 'https://github.com/attaquarks',

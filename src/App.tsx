@@ -1,12 +1,16 @@
 import { lazy, Suspense } from 'react';
 import { useSmoothScroll } from './hooks/useSmoothScroll';
 import { useScrollReveal, useScrollTriggerRefresh } from './hooks/useScrollReveal';
+import { FluidBackground } from './components/FluidBackground';
 import { HeroScene } from './components/HeroScene';
 import { ScrollSpine } from './components/ScrollSpine';
+import { StatusRail } from './components/StatusRail';
 import { SiteDock } from './components/SiteDock';
 import { StackTerminal } from './components/StackTerminal';
 import { ProjectField } from './components/ProjectField';
-import { AsciiPortrait } from './components/AsciiPortrait';
+import { ApproachSection } from './components/ApproachSection';
+import { AboutStage } from './components/AboutStage';
+import { ContactSection } from './components/ContactSection';
 import { projects } from './data/projects';
 
 /**
@@ -21,12 +25,15 @@ const ProjectConstellation = lazy(() =>
 );
 
 /**
- * Four acts on one continuous scroll.
+ * Six movements on one continuous scroll.
  *
- * 1. hero    — sticky, hands itself off (content recedes, atmosphere pulls back)
- * 2. stack   — sticky, scroll position is the playhead for the terminal
- * 3. projects — a camera flies a path through the constellation behind the cards
- * 4. about   — the ASCII portrait wipes in
+ * 001 stack    — sticky, scroll position is the playhead for the terminal
+ * 002 projects — a camera flies a path through the constellation behind the cards
+ * 003 approach — the three roles, as numbered rows
+ * 004 about    — sticky; the portrait resolves out of blocks, then the copy lands on it
+ * 005 contact  — where to find me
+ *
+ * (The hero is unnumbered on purpose: it's the title card, not a chapter.)
  *
  * The `.act` wrappers are tall containers holding `position: sticky` children,
  * rather than GSAP `pin: true`. Sticky needs no pin-spacer, so there's no
@@ -40,6 +47,10 @@ export default function App() {
 
   return (
     <>
+      {/* Outside <main> on purpose. It is the room the acts happen in, not one
+          of them — a fixed layer at z-index 0 with the content lifted above it. */}
+      <FluidBackground />
+      <StatusRail />
       <ScrollSpine />
       <SiteDock />
 
@@ -51,7 +62,10 @@ export default function App() {
         <div className="act act-stack" id="stack">
           <section className="stack-section">
             <div className="section-inner">
-              <div className="kicker">01 — how it&rsquo;s built</div>
+              <div className="kicker">
+                <span className="kicker-index">001</span>
+                <span>how it&rsquo;s built</span>
+              </div>
               <h2 className="section-title">The stack behind the agents</h2>
               <StackTerminal />
             </div>
@@ -66,7 +80,8 @@ export default function App() {
           </Suspense>
           <div className="section-inner">
             <div className="kicker" data-reveal>
-              02 — shipped work
+              <span className="kicker-index">002</span>
+              <span>shipped work</span>
             </div>
             <h2 className="section-title" data-reveal>
               Projects that actually run
@@ -75,29 +90,36 @@ export default function App() {
           </div>
         </section>
 
-        <section id="about">
+        <section id="approach">
           <div className="section-inner">
-            <div className="about-grid">
-              <div className="about-copy">
-                <div className="kicker" data-reveal>
-                  03 — what I&rsquo;m looking for
-                </div>
-                <h2 className="section-title" data-reveal>
-                  Building agents that solve real workflow problems
-                </h2>
-                <p className="lede" data-reveal>
-                  RAG systems with strong evaluation, healthcare and productivity tools, and
-                  full-stack AI products that combine good engineering with thoughtful UX. Based in
-                  Pakistan, working with teams anywhere.
-                </p>
-              </div>
-              <AsciiPortrait />
+            <div className="kicker" data-reveal>
+              <span className="kicker-index">003</span>
+              <span>how I work</span>
             </div>
+            <h2 className="section-title" data-reveal>
+              Three jobs, one person
+            </h2>
+            <ApproachSection />
+          </div>
+        </section>
+
+        <AboutStage />
+
+        <section id="contact">
+          <div className="section-inner">
+            <div className="kicker" data-reveal>
+              <span className="kicker-index">005</span>
+              <span>get in touch</span>
+            </div>
+            <h2 className="section-title" data-reveal>
+              Let&rsquo;s build something that ships
+            </h2>
+            <ContactSection />
           </div>
         </section>
 
         <footer>
-          <span>© {new Date().getFullYear()} Atta Ur Rehman</span>
+          <span className="mono-terminal">© {new Date().getFullYear()} Atta Ur Rehman</span>
           <span className="footer-links">
             <a href="https://github.com/attaquarks" target="_blank" rel="noreferrer">
               github.com/attaquarks
