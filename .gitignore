@@ -17,5 +17,4 @@ DepartureMono-1.500/
 .DS_Store
 Thumbs.db
 *.log
-.env
-.env.local
+.env*
