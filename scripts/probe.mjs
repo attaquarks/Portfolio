@@ -6,6 +6,10 @@
 //
 // Width/height matter more than they look: half the layout questions worth
 // probing are the ones that only go wrong at one breakpoint.
+//
+// Set REDUCED=1 to emulate `prefers-reduced-motion: reduce` — the preference
+// changes the page's whole structure (the acts collapse and no renderer is
+// mounted), so it has to be probed as its own layout, not as a modifier.
 
 import { spawn } from 'node:child_process';
 
@@ -55,6 +59,10 @@ await send('Emulation.setDeviceMetricsOverride', {
   height,
   deviceScaleFactor: 1,
   mobile: width < 768,
+});
+// Before navigation, so the page's first render already sees the preference.
+await send('Emulation.setEmulatedMedia', {
+  features: [{ name: 'prefers-reduced-motion', value: process.env.REDUCED ? 'reduce' : 'no-preference' }],
 });
 await send('Page.navigate', { url });
 await sleep(wait);

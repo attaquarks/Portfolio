@@ -110,7 +110,15 @@ function Constellation({
       // "nearer is brighter" means the node the camera is currently inside
       // becomes a flat wash across the whole viewport, which is exactly what a
       // background layer must never do. You don't see the star you're inside.
-      const passing = THREE.MathUtils.clamp((distance - 1.1) / 1.9, 0, 1);
+      //
+      // The fade runs from 1.1 out to 5.5 units, not to 3.0. At three units a
+      // node's halo already covers most of the viewport, so starting the fade
+      // there meant the brightest, largest state was also the last one drawn —
+      // and a disc that size, clipped by the edge of the screen, reads as a
+      // light leak rather than as a star going past. Dimming across the whole
+      // approach keeps the far field exactly as it was and leaves a close pass
+      // as a soft wash instead of a hard-edged blob.
+      const passing = THREE.MathUtils.clamp((distance - 1.1) / 4.4, 0, 1);
       const halo = haloRefs.current[i];
       const core = coreRefs.current[i];
       if (halo) {
@@ -269,10 +277,20 @@ export function ProjectConstellation({ count }: { count: number }) {
     const host = hostRef.current;
     if (!host) return;
 
+    // The flight starts when the projects section scrolls into view and runs to
+    // the very bottom of the page, because the constellation is pinned behind
+    // everything below it, not just behind those cards. Ending at the section's
+    // own boundary would park the camera for the whole of the approach, the
+    // portrait and the sign-off — a still frame behind a page that is still
+    // moving. The path is the same length either way; it is simply spread over
+    // the distance the backdrop is actually on screen.
+    const start = document.getElementById('projects') ?? host;
+
     const trigger = ScrollTrigger.create({
-      trigger: host.closest('section') ?? host,
+      trigger: start,
       start: 'top bottom',
-      end: 'bottom top',
+      end: () => ScrollTrigger.maxScroll(window),
+      invalidateOnRefresh: true,
       onUpdate: (self) => {
         progress.current = self.progress;
       },

@@ -13,9 +13,9 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- The wallpaper embed is served from here, and it is the first thing the
-         page reaches for after its own bundle. -->
-    <link rel="preconnect" href="https://befluid.xyz" />
+    <!-- The headline is set in Departure Mono, so it is render-blocking content,
+         not decoration. Preloading it stops the h1 swapping face mid-read. -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/DepartureMono-Regular.woff2" crossorigin />
     <!-- The poster is a CSS background, so it isn't discoverable until the
          stylesheet has parsed — and it's the largest thing in the first
          viewport. Preloading it moves the fetch to the start of the waterfall. -->

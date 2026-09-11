@@ -117,71 +117,6 @@ body {
   overflow-x: clip;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-
-  /* The acts exist purely to give scroll-scrubbed timelines somewhere to run.
-     With no timelines, they'd be several viewports of empty scrolling — so the
-     whole structure collapses back into ordinary flow.
-
-     Doubled class, `.act.act-hero` rather than `.act-hero`, because this block
-     sits above the act definitions in the file and would otherwise lose the
-     cascade to them at equal specificity — which it silently did, leaving
-     reduced-motion readers scrolling through about 1500px of nothing per act. */
-  .act.act-hero,
-  .act.act-stack,
-  .act.act-about {
-    height: auto;
-  }
-
-  .act-hero .hero,
-  .act-stack .stack-section,
-  .act-about .about-stage {
-    position: relative;
-    top: auto;
-    height: auto;
-    min-height: 0;
-  }
-
-  /* Collapsed to normal flow the stage is no longer a full viewport, so it gets
-     ordinary section padding and the portrait becomes a backdrop sized by the
-     copy on top of it. The plate needs no override — it is already anchored to
-     the stage's own box. */
-  .act-about .about-stage {
-    display: block;
-    padding: clamp(5rem, 11vh, 8rem) var(--gutter);
-  }
-
-  /* A progress meter with nothing smoothing it just twitches per wheel tick. */
-  .scroll-spine {
-    display: none;
-  }
-
-  /* The camera path is scroll-driven; parked, a static frame of the graph is
-     the honest version of it. */
-  .constellation {
-    position: relative;
-    height: 42svh;
-    margin-bottom: 0;
-    opacity: 0.5;
-  }
-
-  /* No engine is mounted at all under reduced motion (see FluidBackground) —
-     the layer falls back to its poster, which is a real frame of the same
-     piece. Removing it entirely would strip the page's only colour; a still
-     generative frame is a legitimate wallpaper. */
-  .fluid-layer {
-    opacity: 0.34;
-  }
-}
-
 a {
   color: inherit;
 }
@@ -274,27 +209,33 @@ section {
   pointer-events: none;
   z-index: 0;
   opacity: var(--fluid-opacity, 1);
-  /* A real frame of the same piece, pre-dimmed to match the live layer's
-     treatment, painted from CSS with no JavaScript in the way. It is what makes
-     the first frame of the page look finished, and it is what remains if the
-     embed is slow, blocked, or switched off for reduced motion. */
+  /* A real frame of the same piece, painted from CSS with no JavaScript in the
+     way. It is what makes the first frame of the page look finished, and it is
+     what remains if WebGL is unavailable or motion is switched off. */
   background: url("/fluid-poster.jpg") center / cover no-repeat;
   /* The canvas is a live surface behind everything; promoting it once keeps
      section compositing off its back. */
   will-change: opacity;
 }
 
-/* The package's own wrapper — it holds the embed plus the blur/dim treatment.
-   Held back until the embed has had a moment to paint, so the crossfade never
-   hands the poster over to a blank rectangle. */
-.fluid-layer > div {
+/* The render buffer is capped at 480px on its long edge and stretched to fill.
+   That upscale is not a compromise being tolerated — it *is* the blur, done by
+   the compositor for free, where `filter: blur()` at viewport size would cost
+   more than the shader itself.
+
+   Held back until the first frame actually exists, so the crossfade never hands
+   the poster over to a blank rectangle. */
+.fluid-canvas {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
   opacity: 0;
-  transition: opacity 900ms var(--ease-out);
+  transition: opacity 1200ms var(--ease-out);
 }
 
-.fluid-layer[data-live="true"] > div {
+.fluid-layer[data-live="true"] .fluid-canvas {
   opacity: 1;
 }
 
@@ -400,12 +341,29 @@ main {
   }
 }
 
+/* The headline is the one place Departure Mono earns display size.
+   "Terminal Enthusiast" is a claim the page is supposed to demonstrate rather
+   than assert, and the first thing a visitor reads is where that demonstration
+   either happens or doesn't. Space Grotesk still carries every other heading —
+   this is a deliberate single exception, not a change of type system.
+
+   Three things this face forces, all of them load-bearing:
+
+   - `font-weight: 400`. Only Regular is self-hosted, so any heavier value gets
+     synthesised, and a smeared outline is precisely what destroys a pixel grid.
+   - A smaller clamp than a proportional face needs. Every glyph here has the
+     same advance, so a line costs roughly 0.6em per character with no narrow
+     letters to absorb the difference; the old 5rem ceiling overflowed the
+     column outright.
+   - Positive tracking, not the -0.02em a grotesk wants. Tightening a monospace
+     fights its own metrics and the grid stops aligning. */
 .hero h1 {
-  font-size: clamp(2.4rem, 6vw, 5rem);
-  line-height: 1.02;
-  font-weight: 600;
-  margin: 0.4em 0 0.3em;
-  letter-spacing: -0.02em;
+  font-family: var(--font-terminal);
+  font-size: clamp(1.45rem, 5vw, 4.05rem);
+  line-height: 1.12;
+  font-weight: 400;
+  margin: 0.42em 0 0.46em;
+  letter-spacing: 0.005em;
 }
 
 /* Three labels, not a sentence. Departure Mono at label size with generous
@@ -856,6 +814,23 @@ h2.section-title {
   pointer-events: none;
 }
 
+/* Everything below the constellation shares it as a backdrop, and a static block
+   paints *underneath* a positioned one no matter where it sits in the DOM — so
+   without this the graph would draw over the approach rows, the sign-off and the
+   footer.
+
+   `position: relative` and deliberately no z-index. A z-index here would make
+   each section its own stacking context, and the About portrait's
+   `mix-blend-mode: screen` would then blend against the inside of its own
+   section instead of against the constellation and wallpaper behind it — which
+   is the entire reason that portrait reads as glowing rather than pasted on. */
+#projects,
+#approach,
+#contact,
+footer {
+  position: relative;
+}
+
 .constellation-canvas {
   width: 100%;
   height: 100%;
@@ -1297,7 +1272,7 @@ h2.section-title {
    channel of dead space between a name and the thing that names it. */
 .channel-row {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) 2.5rem;
+  grid-template-columns: 1.4rem max-content minmax(0, 1fr) 2.5rem;
   align-items: baseline;
   gap: 1rem;
   padding: clamp(1.1rem, 2.6vh, 1.7rem) 0;
@@ -1309,6 +1284,20 @@ h2.section-title {
 
 .channel-row:hover {
   border-bottom-color: rgba(79, 232, 196, 0.34);
+}
+
+/* An SVG has no baseline, so in a baseline-aligned row it hangs off the bottom.
+   Aligning it to the label's cap height by eye is the one place here where a
+   magic number is more honest than a layout trick. */
+.channel-icon {
+  display: flex;
+  align-self: center;
+  color: var(--paper-dim);
+  transition: color 220ms var(--ease-out);
+}
+
+.channel-row:hover .channel-icon {
+  color: var(--glow);
 }
 
 .channel-label {
@@ -1331,6 +1320,14 @@ h2.section-title {
   color: var(--paper-dim);
 }
 
+/* An address someone may retype, so it is shown as it is actually written.
+   Uppercasing a handle reads as styling; uppercasing an email reads as a
+   mistake in the address. */
+.channel-handle[data-literal] {
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
+
 .channel-arrow {
   justify-self: end;
   font-size: 1.2rem;
@@ -1343,6 +1340,24 @@ h2.section-title {
 .channel-row:hover .channel-arrow {
   transform: translateX(6px);
   color: var(--glow);
+}
+
+/* Below this width "Email" plus a 23-character address plus an arrow no longer
+   fit on one line, and the address is the part that must not be truncated. The
+   handle drops under the label, still in the label's column so the icon rail
+   stays straight. */
+@media (max-width: 620px) {
+  .channel-row {
+    grid-template-columns: 1.4rem minmax(0, 1fr) 2rem;
+    row-gap: 0.3rem;
+    align-items: center;
+  }
+
+  .channel-handle {
+    grid-column: 2;
+    font-size: 0.68rem;
+    overflow-wrap: anywhere;
+  }
 }
 
 /* ---------- Footer ---------- */
@@ -1420,5 +1435,82 @@ footer a:hover {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* ===========================================================================
+   Reduced motion — deliberately the last thing in this file.
+
+   A preference override has to win the cascade, and everything it overrides is
+   defined above it. Sitting at the top of the sheet, as this block used to, it
+   tied on specificity with each rule it meant to replace and lost on source
+   order — so four of its seven overrides silently did nothing. The hero and
+   stack sections stayed `position: sticky` at a full viewport tall, the
+   constellation kept its pinned geometry and its -100svh margin, and the
+   wallpaper kept full opacity over a still frame. Only the About rules took
+   effect, and only by accident: they were one class more specific than the
+   rules they were replacing, which hid the bug for everything else.
+
+   Last, it beats every rule above it on order alone, and none of these
+   selectors need to be doubled or !important-ed to say what they mean.
+   =========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* The acts exist purely to give scroll-scrubbed timelines somewhere to run.
+     With no timelines, they'd be several viewports of empty scrolling — so the
+     whole structure collapses back into ordinary flow. */
+  .act-hero,
+  .act-stack,
+  .act-about {
+    height: auto;
+  }
+
+  .act-hero .hero,
+  .act-stack .stack-section,
+  .act-about .about-stage {
+    position: relative;
+    top: auto;
+    height: auto;
+    min-height: 0;
+  }
+
+  /* Collapsed to normal flow the stage is no longer a full viewport, so it gets
+     ordinary section padding and the portrait becomes a backdrop sized by the
+     copy on top of it. The plate needs no override — it is already anchored to
+     the stage's own box. */
+  .act-about .about-stage {
+    display: block;
+    padding: clamp(5rem, 11vh, 8rem) var(--gutter);
+  }
+
+  /* A progress meter with nothing smoothing it just twitches per wheel tick. */
+  .scroll-spine {
+    display: none;
+  }
+
+  /* The camera path is scroll-driven; parked, a static frame of the graph is
+     the honest version of it. The -100svh margin has to go with the sticky
+     positioning — left in place it pulls the section up over the one above. */
+  .constellation {
+    position: relative;
+    height: 42svh;
+    margin-bottom: 0;
+    opacity: 0.5;
+  }
+
+  /* No engine is mounted at all under reduced motion (see FluidBackground) —
+     the layer falls back to its poster, which is a real frame of the same
+     piece. Removing it entirely would strip the page's only colour; a still
+     generative frame is a legitimate wallpaper. */
+  .fluid-layer {
+    opacity: 0.34;
   }
 }

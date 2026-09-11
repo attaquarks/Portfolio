@@ -72,12 +72,19 @@ export default function App() {
           </section>
         </div>
 
+        {/* Outside #projects, and that placement is the whole point: a sticky
+            element only sticks for as long as its parent's box lasts, so
+            declared inside the projects section the constellation stopped dead
+            at that section's edge. As a direct child of <main> it stays pinned
+            from here to the bottom of the page, and the camera keeps travelling
+            behind the approach rows, the portrait stage and the sign-off.
+            It still contributes no height of its own — the -100svh margin in
+            its rule pulls the next section back up over it. */}
+        <Suspense fallback={null}>
+          <ProjectConstellation count={projects.length} />
+        </Suspense>
+
         <section id="projects">
-          {/* No fallback: it's background, and an empty box is the correct
-              placeholder for something that has no layout footprint. */}
-          <Suspense fallback={null}>
-            <ProjectConstellation count={projects.length} />
-          </Suspense>
           <div className="section-inner">
             <div className="kicker" data-reveal>
               <span className="kicker-index">002</span>

@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { fluidBackground, type FluidBgHandle } from 'fluid-bg/core';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { prefersReducedMotion } from '../hooks/useReducedMotion';
@@ -7,116 +6,300 @@ import { prefersReducedMotion } from '../hooks/useReducedMotion';
 gsap.registerPlugin(ScrollTrigger);
 
 /**
- * The living wallpaper — one Fluid piece behind the entire site.
+ * Act one's wallpaper: a living fluid field, rendered here rather than embedded.
  *
- * This replaces an exported mp4 of the same artwork. The video was a recording
- * of a generative system: an 8s loop, h264 banding across the gradients, and a
- * visible seam every time it wrapped. Running the engine means it never repeats
- * and never bands.
+ * This replaces the `fluid-bg` embed, which was measured on this project's own
+ * hardware (Intel HD 630 / ANGLE D3D11, cold shader cache, headful Chrome):
  *
- * Three decisions here are load-bearing.
+ *              with embed     blocked
+ *   load event    3796ms        795ms
+ *   worst stall   3498ms        632ms
+ *   ever live        no           —
  *
- * 1. A still of the piece paints first, from CSS, with no JavaScript involved
- *    (see .fluid-layer). The page therefore looks finished on the first frame,
- *    and if the live layer never arrives the fallback is the same artwork rather
- *    than an empty rectangle.
+ * Three and a half seconds of frozen tab, three seconds added to load, and after
+ * thirty seconds the embed still had not painted a frame — so the page showed a
+ * static poster and a spinner that never stopped. An iframe is also a subresource,
+ * which is why `window.load` waited on it, and `load` is what the tab throbber
+ * tracks. Owning the renderer fixes all of that at once.
  *
- * 2. `mode: 'iframe'`, not the default native canvas. Measured on this project's
- *    own hardware (Intel HD 630 / ANGLE D3D11), compiling the engine's shader
- *    blocks the main thread for ~11.5s on a cold shader cache — 53ms once Chrome
- *    has cached it, but that first visit is a completely frozen tab, which is
- *    every recruiter opening the link for the first time. In iframe mode the
- *    compile happens in the embed's own renderer process, so the host page never
- *    gives up a frame: scroll, the GSAP timelines and the R3F constellation all
- *    keep running while it warms up. The cost is a few seconds of poster instead
- *    of live art on a cold cache, which is a much cheaper thing to spend.
+ * The cost is controlled in three places, and all three matter on integrated
+ * graphics:
  *
- * 3. `dimColor` is --ink, not black. Darkening toward the page's own charcoal
- *    keeps the piece in the palette; darkening toward #000 greys it out and the
- *    mint goes muddy. The poster is pre-dimmed by the same amount so the two
- *    layers match through the crossfade.
- *
- * The hash's own colours (#73D4AB, #EDFCF2) land almost exactly on --glow and
- * --paper, so unlike the video this needs no hue correction — only a brightness
- * ceiling, which `dim` and the scroll-scrubbed opacity below provide.
+ * 1. **Internal resolution is tiny** — capped at 480px on the long edge,
+ *    regardless of the viewport. The layer is blurred and dimmed to sit behind
+ *    type, so resolution buys nothing here; a 480x300 buffer is ~144k pixels,
+ *    about 3% of a 1440x900 one, and CSS upscaling *is* the blur.
+ * 2. **The shader is deliberately small** — four octaves of value noise and two
+ *    warp passes. The embed's stall was shader compilation, not shading; a short
+ *    program compiles in milliseconds on the same hardware that choked for 3.5s.
+ * 3. **It stops when it is off screen.** The field belongs to the hero. Once the
+ *    constellation takes over, this stops submitting frames entirely rather than
+ *    rendering a layer at zero opacity.
  */
 
-/** Engine Bloom · MINT · Möbius. The embed flag is added by the package. */
-const HASH =
-  '#p=0.55,1.7,6,0.02,1,17,0,8,22.65,0.8,0.85,1,0,0,13,0,0,0,0,0,8421504,2059865,7591083,15596786,0,2,5,50,0,3,86';
+/** Long-edge cap for the render buffer. See note 1 above. */
+const MAX_EDGE = 480;
 
-/** Dim strength, kept next to the value baked into public/fluid-poster.jpg. */
-const DIM = 0.46;
+/** ~30fps. The motion is slow enough that the extra 30 frames buy nothing. */
+const FRAME_MS = 33;
+
+const VERT = `
+attribute vec2 a_pos;
+varying vec2 v_uv;
+void main() {
+  v_uv = a_pos * 0.5 + 0.5;
+  gl_Position = vec4(a_pos, 0.0, 1.0);
+}`;
+
+/* Domain-warped value noise. mediump throughout: this runs on integrated parts
+   where highp is emulated, and nothing here needs the precision. */
+const FRAG = `
+precision mediump float;
+varying vec2 v_uv;
+uniform vec2 u_res;
+uniform float u_time;
+uniform vec3 u_ink;
+uniform vec3 u_deep;
+uniform vec3 u_glow;
+uniform vec3 u_paper;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+    u.y
+  );
+}
+
+float fbm(vec2 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 4; i++) {
+    v += a * noise(p);
+    p *= 2.03;
+    a *= 0.5;
+  }
+  return v;
+}
+
+void main() {
+  vec2 uv = (v_uv * u_res - 0.5 * u_res) / min(u_res.x, u_res.y);
+  vec2 p = uv * 1.7;
+  float t = u_time;
+
+  // Two warp passes. One reads as noise, three costs more than it shows.
+  vec2 q = vec2(fbm(p + t * 0.07), fbm(p + vec2(5.2, 1.3) - t * 0.05));
+  vec2 r = vec2(
+    fbm(p + 3.4 * q + vec2(1.7, 9.2) + t * 0.04),
+    fbm(p + 3.4 * q + vec2(8.3, 2.8) - t * 0.03)
+  );
+  float f = fbm(p + 3.2 * r);
+
+  // Bias toward the dark end: this is a ground for type, and a field that
+  // averages mid-grey leaves nothing for the headline to sit against.
+  f = smoothstep(0.18, 0.92, f);
+  float lift = clamp(length(r) * 0.7, 0.0, 1.0);
+
+  vec3 col = mix(u_ink, u_deep, smoothstep(0.0, 0.55, f));
+  col = mix(col, u_glow, smoothstep(0.52, 0.93, f) * 0.72);
+  col = mix(col, u_paper, smoothstep(0.86, 1.0, f) * lift * 0.35);
+
+  // Centre bloom, so the piece has a subject instead of being an even texture.
+  float bloom = 1.0 - smoothstep(0.0, 1.05, length(uv * vec2(0.85, 1.15)));
+  col += u_glow * bloom * 0.085;
+
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+function compile(gl: WebGLRenderingContext, type: number, src: string) {
+  const shader = gl.createShader(type);
+  if (!shader) return null;
+  gl.shaderSource(shader, src);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
+
+/** Reads a `#rrggbb` custom property into a 0..1 triple for the shader. */
+function rgb(name: string, fallback: string): [number, number, number] {
+  const style = getComputedStyle(document.documentElement);
+  const hex = (style.getPropertyValue(name).trim() || fallback).replace('#', '');
+  const n = parseInt(
+    hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex,
+    16
+  );
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
 
 export function FluidBackground() {
   const hostRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const host = hostRef.current;
-    if (!host) return;
+    const canvas = canvasRef.current;
+    if (!host || !canvas) return;
 
-    const reduced = prefersReducedMotion();
+    // Under reduced motion nothing is created at all — not a paused context, an
+    // absent one. The poster underneath is a real frame of the same piece, so
+    // the layer still carries the page's colour at zero runtime cost.
+    if (prefersReducedMotion()) return;
 
-    // Nothing is mounted at all under reduced motion — not a paused engine, an
-    // absent one. The poster is a real frame of the same piece, so the layer
-    // still carries the page's only colour, at zero runtime cost.
-    let handle: FluidBgHandle | null = null;
-    let reveal: number | undefined;
+    const gl =
+      (canvas.getContext('webgl', {
+        alpha: false,
+        antialias: false,
+        depth: false,
+        stencil: false,
+        powerPreference: 'low-power',
+        failIfMajorPerformanceCaveat: false,
+      }) as WebGLRenderingContext | null) ?? null;
 
-    if (!reduced) {
-      try {
-        handle = fluidBackground(host, {
-          mode: 'iframe',
-          hash: HASH,
-          // Enough to read as depth of field rather than as a texture competing
-          // with the type. The embed over-scans, so no soft edge shows.
-          blur: 14,
-          dim: DIM,
-          dimColor: '#12110f',
-        });
-      } catch {
-        handle = null;
+    // No WebGL, or a driver that refuses the context: the poster is already
+    // painted and is a complete answer. Nothing to clean up, nothing to log.
+    if (!gl) return;
+
+    const vs = compile(gl, gl.VERTEX_SHADER, VERT);
+    const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
+    const program = vs && fs ? gl.createProgram() : null;
+    if (!vs || !fs || !program) return;
+
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
+    gl.useProgram(program);
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 3, -1, -1, 3]),
+      gl.STATIC_DRAW
+    );
+    const loc = gl.getAttribLocation(program, 'a_pos');
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+    const uRes = gl.getUniformLocation(program, 'u_res');
+    const uTime = gl.getUniformLocation(program, 'u_time');
+    gl.uniform3fv(gl.getUniformLocation(program, 'u_ink'), rgb('--ink', '#12110f'));
+    gl.uniform3fv(gl.getUniformLocation(program, 'u_deep'), rgb('--glow-dim', '#2c8f77'));
+    gl.uniform3fv(gl.getUniformLocation(program, 'u_glow'), rgb('--glow', '#4fe8c4'));
+    gl.uniform3fv(gl.getUniformLocation(program, 'u_paper'), rgb('--paper', '#ece7dd'));
+
+    const resize = () => {
+      const ratio = window.innerWidth / Math.max(window.innerHeight, 1);
+      const w = Math.max(2, Math.round(ratio >= 1 ? MAX_EDGE : MAX_EDGE * ratio));
+      const h = Math.max(2, Math.round(ratio >= 1 ? MAX_EDGE / ratio : MAX_EDGE));
+      if (canvas.width === w && canvas.height === h) return;
+      canvas.width = w;
+      canvas.height = h;
+      gl.viewport(0, 0, w, h);
+      gl.uniform2f(uRes, w, h);
+    };
+    resize();
+
+    let raf = 0;
+    let last = 0;
+    let painted = false;
+    // `visible` is the hero zone; `shown` is the tab. Either one false means no
+    // frames — a background nobody is looking at should cost nothing.
+    let visible = true;
+    let shown = document.visibilityState === 'visible';
+    const started = performance.now();
+
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      if (now - last < FRAME_MS) return;
+      last = now;
+
+      gl.uniform1f(uTime, (now - started) / 1000);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      if (!painted) {
+        painted = true;
+        // Crossfade poster to live only once a real frame exists behind it.
+        host.dataset.live = 'true';
       }
-    }
+    };
 
-    const frame = handle?.el.querySelector('iframe');
-    if (frame) {
-      // `load` fires when the embed's document is ready, which is before its
-      // first painted frame. The settle delay is what stops the crossfade
-      // handing the poster over to a blank rectangle.
-      const onLoad = () => {
-        reveal = window.setTimeout(() => {
-          host.dataset.live = 'true';
-        }, 900);
-      };
-      frame.addEventListener('load', onLoad, { once: true });
-    }
+    const sync = () => {
+      const run = visible && shown;
+      if (run && !raf) {
+        last = 0;
+        raf = requestAnimationFrame(tick);
+      } else if (!run && raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+    };
+    sync();
 
-    // The layer owns its own scroll response rather than being driven by the
-    // hero's timeline. It outlives the hero — it is behind every section — so
-    // tying its opacity to one act's lifecycle would mean the wallpaper
-    // switching off the moment that act released.
-    let settle: ScrollTrigger | null = null;
-    if (!reduced) {
-      settle = ScrollTrigger.create({
-        start: 0,
-        end: () => window.innerHeight * 0.9,
-        invalidateOnRefresh: true,
-        onUpdate: (self) => {
-          // Brightest under the hero, where it is the subject; easing to a
-          // steady ambient level everywhere else, where it is the room.
-          gsap.set(host, { '--fluid-opacity': 1 - self.progress * 0.52 });
-        },
-      });
-    }
+    const onVisibility = () => {
+      shown = document.visibilityState === 'visible';
+      sync();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    const onResize = () => resize();
+    window.addEventListener('resize', onResize);
+
+    /**
+     * Act one of three. The wallpaper owns the hero, hands off to the
+     * constellation, and is gone by the time the portrait stage arrives.
+     *
+     * The fade runs to zero rather than to a low ambient level, and the renderer
+     * switches off with it. Crossfading into the constellation is also what
+     * makes the seam between the two invisible: for most of a viewport's worth
+     * of scroll both are partly present, so neither one starts or stops.
+     */
+    const zone = ScrollTrigger.create({
+      start: 0,
+      end: () => {
+        const projects = document.getElementById('projects');
+        const top = projects ? projects.offsetTop : window.innerHeight * 2.5;
+        return Math.max(top - window.innerHeight * 0.45, window.innerHeight);
+      },
+      invalidateOnRefresh: true,
+      onUpdate: (self) => {
+        const opacity = 1 - self.progress;
+        gsap.set(host, { '--fluid-opacity': opacity });
+        const next = opacity > 0.02;
+        if (next !== visible) {
+          visible = next;
+          sync();
+        }
+      },
+    });
 
     return () => {
-      window.clearTimeout(reveal);
-      settle?.kill();
-      handle?.destroy();
+      if (raf) cancelAnimationFrame(raf);
+      zone.kill();
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('resize', onResize);
+      gl.deleteBuffer(buffer);
+      gl.deleteProgram(program);
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
       delete host.dataset.live;
     };
   }, []);
 
-  return <div className="fluid-layer" ref={hostRef} aria-hidden />;
+  return (
+    <div className="fluid-layer" ref={hostRef} aria-hidden>
+      <canvas className="fluid-canvas" ref={canvasRef} />
+    </div>
+  );
 }
