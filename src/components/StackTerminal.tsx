@@ -5,12 +5,18 @@ import { prefersReducedMotion } from '../hooks/useReducedMotion';
 
 gsap.registerPlugin(ScrollTrigger);
 
+/* A session, not an inventory. The old buffer listed every framework I had
+   ever touched, which read as a résumé wearing a costume. This one answers
+   five questions in the order a person would actually ask them — who, what,
+   how, where, why — and names tools only where they answer "how", at the
+   resolution a choice actually gets made at. The last line is the point of
+   the whole section; everything above it is setup. */
 const COMMANDS: { cmd: string; out: string }[] = [
-  { cmd: 'whoami', out: 'AI & full-stack developer — agentic systems, RAG, applied ML' },
-  { cmd: 'cat stack/ai-ml.txt', out: 'LangGraph · LangChain · RAG · PyTorch · TensorFlow · NLP' },
-  { cmd: 'cat stack/backend.txt', out: 'FastAPI · Express · Docker · Redis · PostgreSQL · WebSockets' },
-  { cmd: 'cat stack/frontend.txt', out: 'React · Next.js · TypeScript · Tailwind CSS' },
-  { cmd: 'cat focus.txt', out: 'tool-using agents · retrieval quality · healthcare & productivity AI' },
+  { cmd: 'whoami', out: 'someone who builds AI systems end to end' },
+  { cmd: 'cat what.txt', out: 'tool-using agents · retrieval that keeps its context · evaluation that can say no' },
+  { cmd: 'cat how.txt', out: 'Python + FastAPI underneath · React + TypeScript on top · Docker around it' },
+  { cmd: 'cat where.txt', out: 'healthcare and productivity — the places people actually depend on software' },
+  { cmd: 'cat why.txt', out: 'a model nobody can use is a demo. the interface is where it becomes a product.' },
 ];
 
 /**

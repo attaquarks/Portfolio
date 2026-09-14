@@ -132,10 +132,11 @@ export function AboutStage() {
             An engineer who designs, working out of a terminal in Pakistan
           </h2>
           <p className="lede about-block">
-            I build agentic and retrieval systems end to end — the model work, the API
-            around it, and the interface that makes it something a person can actually
+            I build AI systems end to end &mdash; the model work, the API around
+            it, and the interface that makes it something a person can actually
             use. I care most about the parts that decide whether an AI product is
-            trusted: evaluation, failure states, and the honesty of what it shows you.
+            trusted: evaluation, failure states, and the honesty of what it shows
+            you.
           </p>
           <ul className="about-facts about-block">
             <li>

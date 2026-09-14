@@ -106,26 +106,35 @@ export function HeroScene() {
           <div className="hero-intro">
             <BootLine lines={BOOT_LINES} />
           </div>
-          {/* The positioning, stated as three brackets rather than a sentence,
-              and sized to be read rather than skimmed — this is the line that
-              says what I am, so it leads. Departure Mono is doing real work
-              here: three short labels in caps are exactly what a pixel-grid
-              face is legible at, and the brackets make them read as a spec
-              sheet instead of a slogan. */}
+          {/* Two titles and a trait, not three titles. The first two are the
+              practice — what I build, stated as professions a recruiter can
+              scan for. The third is deliberately not a profession: a verb
+              phrase in a field of nouns, because "how I think" is not a job.
+              The hierarchy gets argued in full by the approach act below;
+              this line just has to stop promising three equal careers. */}
           <p className="hero-roles hero-intro">
             <span>[ AI Engineer ]</span>
             <span>[ Product Designer ]</span>
-            <span>[ Terminal Enthusiast ]</span>
+            <span>[ thinks in terminals ]</span>
           </p>
+          {/* Two halves, one per side of the practice. The first is the system:
+              reasoning that survives production. The second is the interface:
+              considered and human, not bolted on afterward. Same claim the
+              lede and the approach act make — this is where it lands first. */}
           <h1 className="hero-intro">
-            Systems that think,
+            Systems that think
             <br />
-            tools that work.
+            in production.
+            <br />
+            Interfaces that feel
+            <br />
+            made for people.
           </h1>
           <p className="lede hero-intro">
-            Atta Ur Rehman — AI &amp; full-stack developer building agentic workflows,
-            retrieval that preserves context, and the interfaces that make all of it
-            usable. Engineering and design as one job, mostly done from a terminal.
+            Atta Ur Rehman. I build AI systems end to end &mdash; the agents and
+            retrieval underneath, and the interfaces that make them something a
+            person can actually use. One practice, two surfaces, mostly done
+            from a terminal.
           </p>
         </div>
 

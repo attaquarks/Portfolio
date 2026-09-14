@@ -7,37 +7,45 @@ type Role = {
 };
 
 /**
- * Three roles, in the order they show up in a project: the model gets built, the
- * product gets shaped around it, and the whole thing gets driven from a shell.
+ * Three ways I build — but not three equal ones. The first two rows are two
+ * surfaces of one practice: the system, then the interface that finishes it.
+ * The third is not a skill category at all. It is how the person doing the
+ * first two thinks, and it is written to sound like it — a stated belief
+ * rather than a capabilities list.
+ *
+ * The marks follow the same rule. Rows one and two name concepts, not tools,
+ * because the stack act already carries the tool names and a second list of
+ * them here is a résumé, not a person. Row three names values.
  */
 const ROLES: Role[] = [
   {
-    title: 'AI Engineer',
+    title: 'AI systems, end to end',
     blurb:
-      'Agentic systems that use tools and recover when a tool lies to them, retrieval that keeps enough context to be worth citing, and evaluation honest enough to tell me when the model is wrong. Production paths, not notebooks.',
-    marks: ['LangGraph', 'RAG + evals', 'FastAPI', 'PyTorch'],
+      'The core of the work. Agents that use tools and recover when a tool lies to them. Retrieval that keeps enough context to be worth citing. Evaluation honest enough to tell me when the model is wrong. Built to hold up in production, not in a notebook.',
+    marks: ['agentic systems', 'retrieval', 'evaluation'],
   },
   {
-    title: 'Product Designer',
+    title: 'The interfaces around them',
     blurb:
-      'A model only becomes a product at the interface. I design the flow, the empty state and the failure copy before I write the endpoint, because those are the parts a user actually experiences as the system being good.',
-    marks: ['Interface systems', 'Motion', 'Design tokens', 'Prototyping'],
+      'Not a separate job — the same one, finished. A model becomes a product at the interface, so the flow, the empty state and the failure copy get designed before the endpoint gets written. That is the part a person actually experiences as the system being good.',
+    marks: ['flows', 'failure states', 'motion'],
   },
   {
-    title: 'Terminal Enthusiast',
+    title: 'How I think',
     blurb:
-      'Nearly all of this was built in a shell, and it shows in the work: small composable tools, everything scriptable, state you can inspect. A good CLI is the same discipline as a good API with the ceremony removed.',
-    marks: ['zsh', 'tmux', 'Docker', 'Makefiles'],
+      'Somewhere along the way this stopped being a preference. If I cannot see inside a system, I do not trust it — so I work in the one interface that never hides anything: plain text, everything inspectable, everything scriptable. It is not nostalgia. A tool you can take apart is a tool you can rely on, and that belief runs through every system above.',
+    marks: ['nothing hidden', 'everything inspectable', 'small tools'],
   },
 ];
 
 /**
- * Act three-and-a-half: what I actually do, as three numbered rows.
+ * Act three-and-a-half: how the work is actually done, as three numbered rows.
  *
  * A list, not cards. Cards would put three equal boxes side by side and ask the
- * reader to compare them; these are not alternatives to weigh, they're one
- * person read top to bottom, and a stack of rules-and-rows is how a résumé, a
- * changelog and a man page all say that.
+ * reader to compare them; the first two rows are not alternatives to weigh but
+ * two surfaces of one practice, and the third is not a skill at all. A stack of
+ * rules-and-rows is how a résumé, a changelog and a man page all say "read me
+ * top to bottom".
  *
  * The reveal is the shared `data-reveal` scrub rather than a bespoke timeline —
  * this is reading material, and it earns no choreography of its own.

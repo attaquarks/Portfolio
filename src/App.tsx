@@ -104,7 +104,7 @@ export default function App() {
               <span>how I work</span>
             </div>
             <h2 className="section-title" data-reveal>
-              Three jobs, one person
+              Three ways I build
             </h2>
             <ApproachSection />
           </div>
