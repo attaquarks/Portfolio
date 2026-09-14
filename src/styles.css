@@ -19,6 +19,21 @@
   font-display: swap;
 }
 
+/* Façade (Est cut) — Éléonore Fines / Velvetyne, SIL Open Font License. Only the
+   Est cut is bundled: it is the one used, and the family ships four.
+   A display face used at display size in exactly one place (the About heading
+   and its stamp), so it is *not* preloaded — it is several screens down, and
+   blocking the first paint on it would trade a real cost for a theoretical
+   flash. `swap` means the heading is readable in Space Grotesk the moment it
+   scrolls into view, and sharpens when the 7KB arrives. */
+@font-face {
+  font-family: "Facade Est";
+  src: url("/fonts/Facade-Est.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --ink: #12110f;
   --ink-raised: #1a1815;
@@ -37,6 +52,11 @@
      ~1rem where the pixel steps start to show. Every use of this token is a
      short string in caps or digits — never body copy, never a heading. */
   --font-terminal: "Departure Mono", "JetBrains Mono", ui-monospace, monospace;
+  /* The site's one ornament. Façade is an architectural display face — flat
+     planes stacked into letterforms — and it is spent on four words in the
+     About act, where the page stops describing the work and starts describing
+     the person. It never sets a sentence, only the nouns that carry the idea. */
+  --font-facade: "Facade Est", var(--font-display);
   --font-sans: var(--font-display);
   --font-heading: var(--font-display);
 
@@ -161,14 +181,19 @@ section {
    too long and the sequence finishes early, leaving a stretch of scroll where
    nothing happens; these are tuned to end just as the section releases. */
 
+/* The opening is two beats now — the systems half, then the interface half —
+   so it is taller than one screen and scrolls like any other section rather
+   than pinning. Nothing is cut off at any viewport height, and the second
+   beat is discovered by scrolling instead of competing with the first for the
+   same screen. (This is also the layout reduced motion has always used: with
+   no scroll-driven timelines, `.hero` already collapsed to normal flow.) */
 .act-hero {
-  height: 155svh;
+  height: auto;
 }
 
 .act-hero .hero {
-  position: sticky;
-  top: 0;
-  height: 100svh;
+  position: relative;
+  min-height: 100svh;
   overflow: hidden;
 }
 
@@ -270,7 +295,12 @@ main {
 .hero {
   display: flex;
   align-items: flex-end;
-  padding-bottom: 6rem;
+  /* The top padding is what puts the first beat in the first screen and the
+     second one below the fold: the copy is ~800px against a 900px viewport, so
+     it is the only thing deciding where the fold lands. Bottom stays at the
+     gutter the old pinned hero used, and the extra tail at the end of the
+     section is what the handoff fades through. */
+  padding: clamp(7rem, 20vh, 12rem) var(--gutter) 6rem;
 }
 
 /* `inset: 0` alone does NOT stretch a replaced element — see .fluid-media. */
@@ -292,6 +322,14 @@ main {
    and that line is visible for the whole handoff. The floor is therefore an
    ellipse pooled under the copy plus a band that fades out before it reaches
    the edge — no boundary for the eye to catch. */
+
+/* The floor follows the copy, so it moved when the copy did. It used to pool
+   in the bottom quarter because the hero was one screen and the type sat on
+   the fold line; the copy now runs from about a fifth of the way down to just
+   above the tail, so the ellipse sits under its middle and the band carries a
+   constant floor over the rest of the column. Both layers still return to
+   zero at the very bottom edge — a veil that ended on solid --ink would draw a
+   hard horizontal line across the fixed wallpaper at the section's last pixel. */
 .hero-veil {
   position: absolute;
   inset: 0;
@@ -299,17 +337,18 @@ main {
   pointer-events: none;
   background:
     radial-gradient(
-      92% 58% at 26% 84%,
-      rgba(18, 17, 15, 0.9) 0%,
-      rgba(18, 17, 15, 0.52) 46%,
-      rgba(18, 17, 15, 0) 74%
+      88% 62% at 28% 54%,
+      rgba(18, 17, 15, 0.86) 0%,
+      rgba(18, 17, 15, 0.5) 46%,
+      rgba(18, 17, 15, 0) 76%
     ),
     linear-gradient(
       to top,
       rgba(18, 17, 15, 0) 0%,
-      rgba(18, 17, 15, 0.62) 13%,
-      rgba(18, 17, 15, 0.46) 42%,
-      rgba(18, 17, 15, 0) 76%
+      rgba(18, 17, 15, 0.58) 12%,
+      rgba(18, 17, 15, 0.46) 44%,
+      rgba(18, 17, 15, 0.34) 68%,
+      rgba(18, 17, 15, 0) 88%
     );
 }
 
@@ -357,13 +396,24 @@ main {
      column outright.
    - Positive tracking, not the -0.02em a grotesk wants. Tightening a monospace
      fights its own metrics and the grid stops aligning. */
-.hero h1 {
+.hero h1,
+.hero-punch {
   font-family: var(--font-terminal);
   font-size: clamp(1.45rem, 5vw, 4.05rem);
   line-height: 1.12;
   font-weight: 400;
   margin: 0.42em 0 0.46em;
   letter-spacing: 0.005em;
+}
+
+/* The second half of the headline. Same face, same size, same voice — it is
+   the other half of one statement, not a subtitle — separated by enough air
+   that the eye reads two beats instead of one four-line block. It is a <p>
+   rather than a second <h1> because the page has exactly one headline and this
+   is the same claim continued; the display styling is what makes it look like
+   one. */
+.hero-punch {
+  margin-top: clamp(2.75rem, 8vh, 5rem);
 }
 
 /* Three labels, not a sentence. Departure Mono at label size with generous
@@ -404,8 +454,19 @@ main {
 .scroll-cue {
   position: absolute;
   z-index: 3;
-  bottom: 2rem;
-  left: var(--gutter);
+  /* Pinned to the bottom of the *first screen* rather than the bottom of the
+     section. The hero is taller than a viewport now, so `bottom: 2rem` would
+     have parked the cue under the second beat, where nobody needs to be told
+     to scroll. */
+  top: calc(100svh - 3.75rem);
+  /* The right gutter, not the left. It used to sit under the copy's left edge
+     because everything under the copy was empty padding; now the second beat
+     runs down to the bottom of the first screen, and on a 1024×768 laptop the
+     cue landed on the paragraph. The copy column is bounded and the gutter is
+     not, so the right side stays clear at every width above the phone
+     breakpoint — where the column does fill the screen, and the phone rules
+     below move it back. */
+  right: var(--gutter);
   font-family: var(--font-mono);
   font-size: 0.75rem;
   color: var(--paper-dim);
@@ -667,6 +728,31 @@ main {
   .status-rail {
     justify-content: flex-end;
   }
+
+  /* On a phone the copy column is the full width, so there is no gutter to put
+     the cue in and it has to go back under the text. That only works if the
+     hero ends where the screen does: the top padding comes down from 20vh and
+     the bottom opens up by the cue's own height, so the copy settles above it
+     instead of the cue sitting on the last line. */
+  .hero {
+    padding-top: 7rem;
+    padding-bottom: 4.5rem;
+  }
+
+  .scroll-cue {
+    left: var(--gutter);
+    right: auto;
+  }
+}
+
+/* A phone that is also short: the hero cannot be made to end where the screen
+   does, so there is nowhere to put the cue that is not on top of the copy. It
+   is an affordance, not information — the second beat already runs past the
+   fold and says the same thing. */
+@media (max-width: 640px) and (max-height: 700px) {
+  .scroll-cue {
+    display: none;
+  }
 }
 
 /* ---------- Section headers ---------- */
@@ -908,6 +994,17 @@ footer {
 
 /* ---------- Approach ---------- */
 
+/* The one sentence the three rows below it are evidence for. Nothing in the
+   hero or the stack can say it, because it is only true once you have seen all
+   three jobs named next to each other. */
+#approach .lede {
+  font-size: clamp(1rem, 1.5vw, 1.15rem);
+  color: var(--paper-dim);
+  max-width: 52ch;
+  line-height: 1.62;
+  margin: -0.4rem 0 2.4rem;
+}
+
 /* Rows on rules, not a card grid. Three cards side by side would ask the reader
    to compare three options; these aren't alternatives, they're one person read
    top to bottom, which is what a numbered list says and a grid doesn't. */
@@ -1143,8 +1240,52 @@ footer {
   margin: 0 auto;
 }
 
+/* Wider than the 16ch the old one-line title needed. The heading now carries
+   three display words and a stamp below it, and at 16ch it broke into six
+   lines and pushed the act past the viewport it is pinned in. */
 .about-overlay .section-title {
-  max-width: 16ch;
+  max-width: 24ch;
+}
+
+/* The three words set in Façade. Inline and at the heading's own size, so the
+   face does the work — no colour change, no outline, no drop shadow. A display
+   face already reads as louder than the grotesk around it; decorating it as
+   well would be saying the same thing twice. */
+.facade {
+  font-family: var(--font-facade);
+  font-weight: 400;
+  /* Façade's planes sit closer to the cap line than Space Grotesk's, so a hair
+     of size brings the two into optical balance on the same line. */
+  font-size: 1.04em;
+  letter-spacing: 0.01em;
+}
+
+/* The terminal-enthusiast note. Indented off the copy column and narrower than
+   it, so it reads as an aside written *under* the heading rather than as
+   another paragraph in the same voice — which is what it is. The rule above it
+   is the same hairline the facts list uses to separate rows. */
+.about-terminal {
+  margin: clamp(1.2rem, 4.5vh, 2.6rem) 0 0 clamp(0px, 13vw, 10rem);
+  max-width: 54ch;
+  padding-top: clamp(0.8rem, 1.8vh, 1.1rem);
+  border-top: 1px solid var(--line);
+}
+
+.about-terminal-label {
+  margin: 0 0 clamp(0.4rem, 0.9vh, 0.6rem);
+  font-family: var(--font-facade);
+  font-weight: 400;
+  font-size: clamp(1.3rem, 2vw, 1.75rem);
+  line-height: 1.1;
+  letter-spacing: 0.03em;
+  color: var(--paper);
+}
+
+.about-terminal p.about-terminal-copy {
+  margin: 0;
+  font-size: clamp(0.88rem, 1.1vw, 0.96rem);
+  line-height: 1.62;
+  color: var(--paper-dim);
 }
 
 .about-overlay .lede {
@@ -1161,10 +1302,14 @@ footer {
 
 .about-facts {
   list-style: none;
-  margin: clamp(1.6rem, 4vh, 2.4rem) 0 0;
+  /* Every gap in this act is measured in vh as well as rem: the stage is
+     exactly one screen tall and hides its overflow, so a short viewport has to
+     take the space back from somewhere, and the gutters are the cheapest place
+     to find it. */
+  margin: clamp(1.2rem, 4vh, 2.4rem) 0 0;
   padding: 0;
   display: grid;
-  gap: 0.55rem;
+  gap: clamp(0.35rem, 1vh, 0.55rem);
   max-width: 46ch;
 }
 
@@ -1172,7 +1317,7 @@ footer {
   display: grid;
   grid-template-columns: 9.5rem minmax(0, 1fr);
   gap: 1rem;
-  padding-top: 0.55rem;
+  padding-top: clamp(0.35rem, 1vh, 0.55rem);
   border-top: 1px solid var(--line);
   font-size: 0.88rem;
   line-height: 1.5;
@@ -1226,6 +1371,15 @@ footer {
   .about-facts li {
     grid-template-columns: 1fr;
     gap: 0.15rem;
+  }
+
+  /* The indent is a wide-screen gesture: "a second paragraph starting on the
+     page" needs a page with a right-hand side to leave space on. On a phone it
+     only eats a seventh of the column and wraps the copy a line longer than it
+     needs — which matters, because this act is pinned to one screen tall. */
+  .about-terminal {
+    margin-left: 0;
+    max-width: none;
   }
 }
 
@@ -1480,6 +1634,15 @@ footer a:hover {
     top: auto;
     height: auto;
     min-height: 0;
+  }
+
+  /* The cue is positioned against a first screen that no longer exists once the
+     hero collapses to the height of its copy — it would be clipped outside the
+     section. Parked at the bottom of the section instead, where the end of the
+     reading is. */
+  .scroll-cue {
+    top: auto;
+    bottom: 2rem;
   }
 
   /* Collapsed to normal flow the stage is no longer a full viewport, so it gets

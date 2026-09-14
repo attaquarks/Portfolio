@@ -128,15 +128,21 @@ export function AboutStage() {
             <span className="kicker-index">004</span>
             <span>who&rsquo;s behind it</span>
           </div>
+          {/* Three words carry the display face: the claim in the title is the
+              same one the hero makes in brackets, so it gets the treatment that
+              makes a reader stop on it. Everything else stays in the text faces
+              — a decorative face on a whole sentence is a poster, and this is
+              still a section of a portfolio that has to be read. */}
           <h2 className="section-title about-block">
-            An engineer who designs, working out of a terminal in Pakistan
+            The <span className="facade">Engineer</span> who{' '}
+            <span className="facade">Designs</span> software from a{' '}
+            <span className="facade">terminal</span>:
           </h2>
           <p className="lede about-block">
-            I build AI systems end to end &mdash; the model work, the API around
-            it, and the interface that makes it something a person can actually
-            use. I care most about the parts that decide whether an AI product is
-            trusted: evaluation, failure states, and the honesty of what it shows
-            you.
+            One person for both jobs is the point: the model&rsquo;s evaluation
+            and the words in the empty state get decided in the same head, so
+            neither is designed around the other. Most of that happens in a
+            terminal.
           </p>
           <ul className="about-facts about-block">
             <li>
@@ -156,6 +162,21 @@ export function AboutStage() {
               <span className="about-fact-value">Teams in any timezone, from UTC+5</span>
             </li>
           </ul>
+
+          {/* The indentation is the whole idea: the title runs full width, this
+              sits in from the left like a second paragraph starting on a page,
+              so it reads as an aside to the claim rather than a fourth fact.
+              It is also the one block on the page that answers the third
+              bracket in the hero. */}
+          <div className="about-terminal about-block">
+            <p className="about-terminal-label">TERMINAL ENTHUSIAST</p>
+            <p className="about-terminal-copy">
+              Everything runs in one window: agents beside the build, several at
+              once, each on its own branch of the work. Bash does the rest &mdash;
+              layouts, migrations, tests, deploys &mdash; and a script gets
+              written before a menu gets opened.
+            </p>
+          </div>
         </div>
       </section>
     </div>

@@ -7,45 +7,49 @@ type Role = {
 };
 
 /**
- * Three ways I build — but not three equal ones. The first two rows are two
- * surfaces of one practice: the system, then the interface that finishes it.
- * The third is not a skill category at all. It is how the person doing the
- * first two thinks, and it is written to sound like it — a stated belief
- * rather than a capabilities list.
+ * Three jobs, one person. This is the spine of the page: the hero claims three
+ * roles in brackets, the projects show each one in the wild, and this act is
+ * where the claim is cashed.
  *
- * The marks follow the same rule. Rows one and two name concepts, not tools,
- * because the stack act already carries the tool names and a second list of
- * them here is a résumé, not a person. Row three names values.
+ * The order is the order the work actually happens in — the system, the product
+ * shaped around it, then the engineering that makes both real — which is also
+ * why the third row is written last and sounds like it: it is the row that has
+ * to carry production, not just capability.
+ *
+ * The marks are evidence, not decoration. Naming tools here is deliberate: a
+ * job title with nothing under it is a title. The stack act lists the same
+ * names in more detail, but a reader who stops at this section should still be
+ * able to tell what I can be handed on a Monday.
  */
 const ROLES: Role[] = [
   {
-    title: 'AI systems, end to end',
+    title: 'AI Engineer',
     blurb:
-      'The core of the work. Agents that use tools and recover when a tool lies to them. Retrieval that keeps enough context to be worth citing. Evaluation honest enough to tell me when the model is wrong. Built to hold up in production, not in a notebook.',
-    marks: ['agentic systems', 'retrieval', 'evaluation'],
+      'Agentic systems that call tools, cope with one lying to them, and recover. Retrieval that keeps enough context to be worth citing. Multimodal pipelines that read images and text together — and evaluation strict enough to catch the model being wrong before a user does.',
+    marks: ['LangGraph', 'RAG + evals', 'Multimodal', 'PyTorch'],
   },
   {
-    title: 'The interfaces around them',
+    title: 'Product Designer',
     blurb:
-      'Not a separate job — the same one, finished. A model becomes a product at the interface, so the flow, the empty state and the failure copy get designed before the endpoint gets written. That is the part a person actually experiences as the system being good.',
-    marks: ['flows', 'failure states', 'motion'],
+      'A model only becomes a product at the interface. I shape the flow, the states nobody plans for, and the words inside them, because that is the part a person experiences as the software being good. Interaction, motion, and the visual system holding it together.',
+    marks: ['Interface systems', 'Motion', 'Design tokens', 'Prototyping'],
   },
   {
-    title: 'How I think',
+    title: 'Software Engineer',
     blurb:
-      'Somewhere along the way this stopped being a preference. If I cannot see inside a system, I do not trust it — so I work in the one interface that never hides anything: plain text, everything inspectable, everything scriptable. It is not nostalgia. A tool you can take apart is a tool you can rely on, and that belief runs through every system above.',
-    marks: ['nothing hidden', 'everything inspectable', 'small tools'],
+      'Then I build it, and I ship it. React and TypeScript on the front, FastAPI and Postgres behind, the APIs, auth and integrations in between, and the containers and deploy path that put it in front of real users. Building the whole thing is what keeps the design honest.',
+    marks: ['React + TypeScript', 'FastAPI', 'PostgreSQL', 'Docker'],
   },
 ];
 
 /**
- * Act three-and-a-half: how the work is actually done, as three numbered rows.
+ * Act three: the three jobs, as numbered rows.
  *
  * A list, not cards. Cards would put three equal boxes side by side and ask the
- * reader to compare them; the first two rows are not alternatives to weigh but
- * two surfaces of one practice, and the third is not a skill at all. A stack of
- * rules-and-rows is how a résumé, a changelog and a man page all say "read me
- * top to bottom".
+ * reader to compare them; these are not alternatives to weigh but three layers
+ * of one job, and the numbering plus the shared baseline reads as a sequence.
+ * A stack of rules-and-rows is how a résumé, a changelog and a man page all say
+ * "read me top to bottom".
  *
  * The reveal is the shared `data-reveal` scrub rather than a bespoke timeline —
  * this is reading material, and it earns no choreography of its own.

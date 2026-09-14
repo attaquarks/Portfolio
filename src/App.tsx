@@ -104,8 +104,16 @@ export default function App() {
               <span>how I work</span>
             </div>
             <h2 className="section-title" data-reveal>
-              Three ways I build
+              Three jobs, one person
             </h2>
+            {/* The story in one line, before the three rows prove it. The hero
+                states the roles; this is the sentence that explains why they
+                are one person rather than three, which is the thing a reader
+                scanning for a hire is actually trying to work out. */}
+            <p className="lede" data-reveal>
+              I build intelligent systems, design the products around them, and
+              engineer them into real software.
+            </p>
             <ApproachSection />
           </div>
         </section>
