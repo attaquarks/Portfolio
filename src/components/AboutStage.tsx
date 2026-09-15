@@ -47,15 +47,23 @@ const LATE_START = 3.0;
 const LATE_END = 3.79;
 
 /**
- * The other half of the `max-height: 700px` block in styles.css, which unpins
- * the stage. Kept in step with that query by hand: this act is one screen tall
- * by design, and on a screen too short to hold its column the honest version is
- * the static one rather than a pinned column with its first and last lines cut
- * off. Matches the reduced-motion treatment, which is the same trade.
+ * The other half of the unpinning rule in styles.css. Kept in step with that
+ * query by hand: this act is one screen tall by design, and on a screen too
+ * short to hold its column the honest version is the static one rather than a
+ * pinned column with its first and last lines cut off. Matches the
+ * reduced-motion treatment, which is the same trade.
+ *
+ * All three clauses are in the CSS too, in the same order, so the two files can
+ * be read against each other. The numbers are low on purpose — a laptop at
+ * 1366x768 has a ~650px *window*, not 768, and an earlier version of this that
+ * keyed off 700px unpinned the act on most laptops while there was still 120px
+ * of screen left unused below the column.
  */
 const isShortViewport = () =>
   typeof window !== 'undefined' &&
-  window.matchMedia('(max-height: 700px)').matches;
+  (window.matchMedia('(max-height: 580px)').matches ||
+    window.matchMedia('(min-width: 1200px) and (max-height: 620px)').matches ||
+    window.matchMedia('(max-width: 450px) and (max-height: 740px)').matches);
 
 /**
  * Paints the stamp at `t` through its scroll window.

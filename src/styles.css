@@ -1421,22 +1421,28 @@ footer {
 /* Two squeezes, for two different reasons. A short viewport has less room. A
    narrow one has a *taller* column, because every paragraph in it wraps to more
    lines — at 375px the heading alone gains a line and 43px over what it needs at
-   390px. Either way the column has to come back to fit the one screen it is
-   pinned in, and the stamp's air is where most of it comes from: it is the most
-   expensive thing in the column and the only part of it whose job is still done
-   at half the size. */
-@media (max-height: 800px), (max-width: 400px) {
+   390px.
+
+   This first one is the gentle pass, and it is the one most people meet: 800px
+   is an ordinary laptop window. So it gives up air and nothing else — the type
+   keeps every size it has on a tall screen. That is a correction, not a
+   preference. The earlier version shrank the lede and the terminal copy here
+   too, and at the heights this query actually matches that read as a page
+   crowding itself rather than a page making room. It was also unnecessary: at
+   1440x700 this tier alone leaves the column 120px short of the screen, and at
+   1440x750 it was never needed at all.
+
+   The stamp is the one thing that gets *less* room here rather than more, since
+   it is the most expensive item in the column and the only one whose job is
+   still done at two thirds the air — but it keeps a floor of 0.9rem, because
+   the air around it is what makes it a moment rather than a line. */
+@media (max-height: 800px), (max-width: 450px) {
   .about-overlay .section-title {
     margin-bottom: clamp(0.6rem, 1.8vh, 1rem);
   }
 
   .about-stamp {
-    margin: clamp(0.6rem, 1.8vh, 1.1rem) 0 clamp(0.6rem, 1.8vh, 1.1rem);
-  }
-
-  .about-overlay .lede {
-    font-size: clamp(0.92rem, 1.35vw, 1.02rem);
-    line-height: 1.55;
+    margin: clamp(0.9rem, 3vh, 1.8rem) 0 clamp(0.9rem, 3vh, 1.8rem);
   }
 
   .about-facts {
@@ -1452,24 +1458,63 @@ footer {
     margin-top: clamp(0.6rem, 1.8vh, 1.1rem);
     padding-top: clamp(0.4rem, 1vh, 0.6rem);
   }
+}
+
+/* The second pass, and the only place type gets smaller. Air alone stops being
+   enough around 660px, because what is left at that point is 550px of content
+   and content does not answer a height query. What comes off is the lede and the
+   terminal copy — the two blocks that hold paragraphs, and so the two that can
+   lose a step without the page looking like it is shrinking to fit. The heading
+   keeps its size throughout: it is the section's claim, and the last thing on
+   the page that should be traded away.
+
+   The stamp steps down too, but only here, and by less than the paragraphs: it
+   is a single line, so it buys the least and costs the most. */
+@media (max-height: 660px) {
+  .about-overlay .lede {
+    font-size: clamp(0.94rem, 1.35vw, 1.04rem);
+    line-height: 1.55;
+  }
+
+  .about-stamp {
+    font-size: clamp(1.75rem, 3.3vw, 2.7rem);
+  }
 
   .about-terminal p.about-terminal-copy {
-    font-size: 0.84rem;
+    font-size: clamp(0.86rem, 1.05vw, 0.92rem);
     line-height: 1.55;
   }
 }
 
-/* Below this height the column is simply taller than the screen it is pinned
-   in, and no amount of tightening closes the gap — at 375×667 the copy on its
-   own runs to 690px against 667. The act stops pinning and behaves exactly as
-   it does under reduced motion: ordinary flow, ordinary section padding,
-   everything resolved on arrival. See the `prefers-reduced-motion` block at the
-   end of this file, which this deliberately mirrors.
+/* And below this the column is simply taller than the screen it is pinned in,
+   and no amount of tightening closes the gap. The act stops pinning and behaves
+   exactly as it does under reduced motion: ordinary flow, ordinary section
+   padding, everything resolved on arrival. See the `prefers-reduced-motion`
+   block at the end of this file, which this deliberately mirrors.
+
+   Both numbers are measured against the two tiers above rather than picked,
+   and the middle clause is the one that matters most. The column is not one
+   size that fails at one height: every type step in it is a `vw` clamp, so a
+   wide window holds a *bigger* column than a narrow one at the same height.
+   At 600px tall, 1024 wide has 72px to spare and 1366 wide has 18. One height
+   threshold cannot separate those two, and setting it low enough to cover the
+   second would put the first — a real laptop — into the static fallback with
+   most of a screen still unused. So the height is measured against the width
+   it is failing at.
+
+   A narrow column runs out around 740px because at 375–450px it is 580px of
+   wrapped text at any height, which is what the width clause is for.
+
+   Erring high on all three is deliberate — a viewport that would just have
+   fitted goes static and still reads, where one that just misses clips its own
+   first and last lines off a pin.
 
    `isShortViewport` in AboutStage is the other half of it. Left as CSS alone
    the timeline would still be built and scrubbed against a pin that no longer
    exists, which is worse than either state on its own. */
-@media (max-height: 700px) {
+@media (max-height: 580px),
+  (min-width: 1200px) and (max-height: 620px),
+  (max-width: 450px) and (max-height: 740px) {
   .act-about {
     height: auto;
   }
