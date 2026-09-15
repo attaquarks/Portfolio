@@ -161,13 +161,19 @@ export function HeroScene() {
               headline above it, because it is the same claim continued — the
               two are separated by air rather than by a change of style. A <p>
               rather than a second <h1>: the page has one headline, and this is
-              it still talking. */}
-          <p className="hero-punch" data-reveal>
-            Interfaces that feel,
+              it still talking.
+
+              Set on the other margin from beat one. The claim is one statement
+              in two halves, and opposing them is what makes the second read as
+              the answer to the first rather than as the paragraph after it. The
+              paragraph below goes with it — a right-aligned headline over a
+              left-aligned paragraph is a layout that has not decided. */}
+          <p className="hero-punch hero-beat-right" data-reveal>
+            Interface that feels,
             <br />
-            visuals that interact.
+            Design that moves.
           </p>
-          <p className="lede" data-reveal>
+          <p className="lede hero-beat-right" data-reveal>
             The design half is not decoration. It is where a system becomes
             something a person can rely on &mdash; the flow, the states nobody
             plans for, the words in every error message. I build that myself in

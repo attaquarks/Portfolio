@@ -117,11 +117,12 @@ function paintStamp(el: HTMLElement, t: number) {
  * the two would mean reading a paragraph while the thing behind it is still
  * changing, which is the specific way scroll-driven sections become unreadable.
  *
- * The third beat sits between the heading and the prose: the heading arrives,
- * then the TERMINAL ENTHUSIAST stamp decodes over a long stretch of scroll, and
- * only once it has resolved does the paragraph under it start. The prose is
- * held back deliberately — a paragraph typing itself in beneath a string that
- * is still scrambling reads as two things competing for the same moment.
+ * The third beat is the stamp, and it opens the act: the kicker, the stamp and
+ * the heading arrive together, then TERMINAL ENTHUSIAST decodes over a long
+ * stretch of scroll, and only once it has resolved do the paragraph and the
+ * facts under it start. The prose is held back deliberately — a paragraph typing
+ * itself in beneath a string that is still scrambling reads as two things
+ * competing for the same moment.
  *
  * Blocks rather than a wipe because the subject is a dithered ASCII render — it
  * is already made of cells, so clearing it cell-wise is the material's own
@@ -144,8 +145,10 @@ export function AboutStage() {
     const tiles = act.querySelectorAll<HTMLElement>('.about-tile');
     const portrait = act.querySelector<HTMLElement>('.about-portrait');
     const stamp = act.querySelector<HTMLElement>('.about-stamp-live');
-    // Two groups, not one. The heading and its stamp arrive together; the prose
-    // waits for the stamp to finish decoding.
+    // Two groups, not one. The kicker, the stamp and the heading arrive
+    // together; the paragraph and the facts wait for the stamp to finish
+    // decoding. The grouping is by class rather than by document order, so
+    // moving the stamp above the heading did not change which beat it lands in.
     const blocksEarly = act.querySelectorAll<HTMLElement>(
       '.about-block:not(.about-block-late)'
     );
@@ -274,22 +277,17 @@ export function AboutStage() {
             <span className="kicker-index">004</span>
             <span>who&rsquo;s behind it</span>
           </div>
-          {/* Three words carry the display face: the claim in the title is the
-              same one the hero makes in brackets, so it gets the treatment that
-              makes a reader stop on it. Everything else stays in the text faces
-              — a decorative face on a whole sentence is a poster, and this is
-              still a section of a portfolio that has to be read. */}
-          <h2 className="section-title about-block">
-            The <span className="facade">Engineer</span> who{' '}
-            <span className="facade">Designs</span> software from a{' '}
-            <span className="facade">terminal</span>:
-          </h2>
-
           {/* The act's one display moment, and the only string on the page that
-              arrives rather than is read. It is the hero's third bracket spent
-              properly: Departure Mono, because this is machine output and the
-              face is what says so, and set apart from the heading above and the
-              prose below by air rather than by a rule.
+              arrives rather than is read. It opens the act, above the heading,
+              because it is the answer the heading then explains — the phrase
+              comes first and the sentence about it follows, which is the order
+              the hero's brackets set up three sections earlier.
+
+              It is the hero's third bracket spent properly: Departure Mono,
+              because this is machine output and the face is what says so, and
+              set apart from the heading below and the prose under that by air
+              rather than by a rule. Centred, because it is the one element in
+              this column that is not part of the reading — it is a stamp.
 
               Two elements, one visible: the scramble rewrites textContent every
               frame, so assistive tech is given a stable copy of the phrase
@@ -300,6 +298,15 @@ export function AboutStage() {
             </span>
             <span className="sr-only">Terminal enthusiast</span>
           </div>
+
+          {/* One face throughout. This heading held the site's only Façade Est
+              words until 2026-09-15, when the stamp above took over as the act's
+              display moment — two ornamental treatments in one column is one
+              too many, and the stamp is the one that says something the plain
+              face cannot. */}
+          <h2 className="section-title about-block">
+            Engineer who builds Software from a terminal:
+          </h2>
 
           <p className="lede about-block about-block-late">
             One person for both jobs is the point: the model&rsquo;s evaluation
@@ -325,21 +332,6 @@ export function AboutStage() {
               <span className="about-fact-value">Teams in any timezone, from UTC+5</span>
             </li>
           </ul>
-
-          {/* The indentation is the whole idea: the title runs full width, this
-              sits in from the left like a second paragraph starting on a page,
-              so it reads as an aside to the claim rather than a fourth fact.
-              It is also the one block on the page that answers the last bracket
-              in the hero — which is now the stamp above it, so this block no
-              longer repeats the phrase as a label of its own. */}
-          <div className="about-terminal about-block about-block-late">
-            <p className="about-terminal-copy">
-              Everything runs in one window: agents beside the build, several at
-              once, each on its own branch of the work. Bash does the rest &mdash;
-              layouts, migrations, tests, deploys &mdash; and a script gets
-              written before a menu gets opened.
-            </p>
-          </div>
         </div>
       </section>
     </div>

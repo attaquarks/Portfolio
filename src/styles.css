@@ -356,8 +356,19 @@ main {
 .hero-content {
   position: relative;
   z-index: 3;
-  max-width: 900px;
+  /* Full width, where this used to be capped at a 900px column. The two beats
+     now sit on opposite margins, and a right edge that stops 300px short of the
+     page's own gutter is not a right alignment — it is a centred block that has
+     not noticed it is off centre. The left-hand beat keeps the old measure
+     through `.hero-intro` just below, so beat one lays out exactly as it did. */
+  width: 100%;
   will-change: transform, opacity, filter;
+}
+
+/* Beat one's measure, unchanged from when the whole column was capped at 900px.
+   The roles line, the headline and the first paragraph all sit inside it. */
+.hero-intro {
+  max-width: 900px;
 }
 
 .hero-eyebrow {
@@ -450,6 +461,16 @@ main {
   color: var(--paper-dim);
   max-width: var(--measure);
   line-height: 1.55;
+}
+
+/* Beat two, on the opposite margin from beat one. `margin-left: auto` as well as
+   `text-align`, because the paragraph beneath carries a max-width: right-
+   aligning the *text* inside a left-parked box would leave the block exactly
+   where it was and only comb the paragraph's ragged edge, which reads as a
+   mistake rather than as a side. */
+.hero .hero-beat-right {
+  text-align: right;
+  margin-left: auto;
 }
 
 .scroll-cue {
@@ -1246,17 +1267,20 @@ footer {
   margin: 0 auto;
 }
 
-/* Wider than the 16ch the old one-line title needed. The heading now carries
-   three display words and a stamp below it, and at 16ch it broke into six
-   lines and pushed the act past the viewport it is pinned in. */
+/* Wider than the 16ch a short title needs. A sentence-shaped heading at the
+   act's own size wants to break in two, not six, and 24ch is where it does —
+   the act is pinned to one screen, so a heading that wraps to six lines pushes
+   the column past the viewport it is held in. */
 .about-overlay .section-title {
   max-width: 24ch;
 }
 
-/* The three words set in Façade. Inline and at the heading's own size, so the
-   face does the work — no colour change, no outline, no drop shadow. A display
-   face already reads as louder than the grotesk around it; decorating it as
-   well would be saying the same thing twice. */
+/* Unused since 2026-09-15, and deliberately kept: this is the site's only
+   Façade Est call site, the face is already subset and self-hosted, and a
+   browser does not fetch a face nothing matches. Reinstating it is a class name
+   rather than a re-download. The comment that used to justify the styling below
+   described three words of the About heading, which no longer exist — the
+   heading is one face throughout and the stamp above it is Departure Mono. */
 .facade {
   font-family: var(--font-facade);
   font-weight: 400;
@@ -1271,41 +1295,39 @@ footer {
    and the face is what says so — the same argument the hero's headline makes at
    the same kind of size.
 
-   The size is the heading's own clamp scaled by 1.13 rather than a clamp of its
-   own. "Slightly larger than the heading" has to hold at *every* width, and two
+   It opens the act now, above the heading, so it is the thing a reader meets
+   first and the heading reads as the sentence explaining it. Centred, and the
+   only element in this column that is not part of the reading order — a stamp
+   is applied to a page rather than set in it, and centring is what says so.
+
+   The size is the heading's own clamp scaled by 1.45 rather than a clamp of its
+   own. "Larger than the heading" has to hold at *every* width, and two
    independently authored clamps drift back together through the middle of their
    range: at 1200px a 3.4vw heading and a 3.6vw stamp differ by half a pixel.
 
-   The air on both sides is what makes this a separate beat rather than a third
-   line of the heading, and it is measured in vh as well as rem — this act is
-   pinned to exactly one screen, so the space around the stamp is the first
-   place a short viewport takes anything back. */
+   The air on both sides is what makes this a separate beat rather than a first
+   line of the heading. It is measured in vh as well as rem — this act is pinned
+   to exactly one screen, so the space around the stamp is the first place a
+   short viewport takes anything back. */
 .about-stamp {
   font-family: var(--font-terminal);
   font-weight: 400;
-  font-size: clamp(2.03rem, 3.84vw, 3.16rem);
+  font-size: clamp(2.61rem, 4.93vw, 4.06rem);
   line-height: 1.06;
   letter-spacing: 0.005em;
   color: var(--paper);
-  margin: clamp(1.8rem, 6.5vh, 4rem) 0 clamp(1.6rem, 5.5vh, 3.4rem);
-}
-
-/* The terminal-enthusiast note. Indented off the copy column and narrower than
-   it, so it reads as an aside written *under* the heading rather than as
-   another paragraph in the same voice — which is what it is. The rule above it
-   is the same hairline the facts list uses to separate rows. */
-.about-terminal {
-  margin: clamp(1.2rem, 4.5vh, 2.6rem) 0 0 clamp(0px, 13vw, 10rem);
-  max-width: 54ch;
-  padding-top: clamp(0.8rem, 1.8vh, 1.1rem);
-  border-top: 1px solid var(--line);
-}
-
-.about-terminal p.about-terminal-copy {
-  margin: 0;
-  font-size: clamp(0.88rem, 1.1vw, 0.96rem);
-  line-height: 1.62;
-  color: var(--paper-dim);
+  text-align: center;
+  /* A dark-green shadow, not a glow. The mint `--glow` at this size reads as
+     neon and starts competing with the portrait behind it; this is the same
+     family of hue taken down to where it sits *under* the glyphs — enough to
+     lift the string off a dithered image, quiet enough to stay part of the
+     backdrop. Two stops so it has depth rather than a flat halo, and
+     `text-shadow` rather than a filter: it touches the type and nothing else,
+     which is what keeps it off the portrait. */
+  text-shadow:
+    0 0 24px rgba(38, 126, 94, 0.5),
+    0 2px 8px rgba(10, 34, 26, 0.7);
+  margin: clamp(1.5rem, 5vh, 3rem) 0 clamp(1.4rem, 4vh, 2.6rem);
 }
 
 .about-overlay .lede {
@@ -1392,27 +1414,24 @@ footer {
     grid-template-columns: 1fr;
     gap: 0.15rem;
   }
-
-  /* The indent is a wide-screen gesture: "a second paragraph starting on the
-     page" needs a page with a right-hand side to leave space on. On a phone it
-     only eats a seventh of the column and wraps the copy a line longer than it
-     needs — which matters, because this act is pinned to one screen tall. */
-  .about-terminal {
-    margin-left: 0;
-    max-width: none;
-  }
 }
 
 /* Below this width the phrase is wider than the copy column at any size that is
-   still larger than the heading, so it sets on two lines. 450px is measured,
-   not guessed: the resolved string is 395px at the 2.03rem floor, both gutters
-   together are 12vw above 400px, and 0.88 x 450 is the first viewport that
-   clears 395.
+   still larger than the heading, so it sets on two lines.
 
-   The box is held at two lines from the start. The string is one line until
-   character nine, and without the reservation everything below the stamp would
-   jump down the screen part-way through the decode. */
-@media (max-width: 450px) {
+   579px is measured, not guessed, and it moved when the stamp grew. The string
+   is 19 characters at a fixed 0.6384em each, so 509px at the 2.61rem floor —
+   and the floor is what applies here, since the `4.93vw` middle term only takes
+   over at 847px. The available width is `0.88 x viewport` above 400px (both
+   gutters are 6vw, and the overlay's 1100px cap never binds down here), so the
+   two cross at 578.4. Probed either side: two lines at 578, one at 580. This
+   used to say 450, which was right for the old 1.13x stamp and would now leave
+   a 130px band of viewports where the phrase silently becomes two lines.
+
+   The box is held at two lines from the start. The string is one character
+   until the playhead reaches the window, and without the reservation everything
+   below the stamp would jump down the screen part-way through the decode. */
+@media (max-width: 578px) {
   .about-stamp {
     min-height: calc(2 * 1.06em);
   }
@@ -1426,11 +1445,11 @@ footer {
    This first one is the gentle pass, and it is the one most people meet: 800px
    is an ordinary laptop window. So it gives up air and nothing else — the type
    keeps every size it has on a tall screen. That is a correction, not a
-   preference. The earlier version shrank the lede and the terminal copy here
-   too, and at the heights this query actually matches that read as a page
-   crowding itself rather than a page making room. It was also unnecessary: at
-   1440x700 this tier alone leaves the column 120px short of the screen, and at
-   1440x750 it was never needed at all.
+   preference. The earlier version shrank the lede and the paragraph that used
+   to sit under it at this tier too, and at the heights this query actually
+   matches that read as a page crowding itself rather than a page making room.
+   It was also unnecessary: at 1440x700 this tier alone leaves the column 120px
+   short of the screen, and at 1440x750 it was never needed at all.
 
    The stamp is the one thing that gets *less* room here rather than more, since
    it is the most expensive item in the column and the only one whose job is
@@ -1453,35 +1472,36 @@ footer {
   .about-facts li {
     padding-top: clamp(0.2rem, 0.6vh, 0.35rem);
   }
-
-  .about-terminal {
-    margin-top: clamp(0.6rem, 1.8vh, 1.1rem);
-    padding-top: clamp(0.4rem, 1vh, 0.6rem);
-  }
 }
 
-/* The second pass, and the only place type gets smaller. Air alone stops being
-   enough around 660px, because what is left at that point is 550px of content
-   and content does not answer a height query. What comes off is the lede and the
-   terminal copy — the two blocks that hold paragraphs, and so the two that can
-   lose a step without the page looking like it is shrinking to fit. The heading
+/* The second pass, and the only place type gets smaller — but only in the last
+   40px of height before the act goes static at 580.
+
+   This used to open at 660, and 660 was the honest number *then*: the column
+   still carried a second paragraph under the heading, and below 660 that block
+   is what stopped fitting. Removing it freed about 130px, and the tier did not
+   move with it — so for a while every window from 620 to 660 got a smaller lede
+   than it had room for, which is the same "crowding itself" failure this file
+   has already been corrected for once, arriving from the other direction.
+
+   620 is the measured replacement. Probed with the lede at full size: the
+   column clears its stage by 93px at 1440x621, 101 at 1600x630 and 126 at
+   1440x660, but drops to 57 at 451x581 — the thinnest point of the entire
+   pinned range, on the narrowest window that is still wide enough not to have
+   gone static. So the squeeze is kept exactly where the clearance is thin and
+   given up everywhere else.
+
+   What comes off is the lede, the block that holds the paragraph and so the one
+   that can lose a step without the page reading as shrunk to fit. The heading
    keeps its size throughout: it is the section's claim, and the last thing on
    the page that should be traded away.
 
-   The stamp steps down too, but only here, and by less than the paragraphs: it
-   is a single line, so it buys the least and costs the most. */
-@media (max-height: 660px) {
+   The stamp is not in here at all, and that is the current arrangement rather
+   than an omission. Its size is the heading's clamp scaled by a constant, so it
+   can only be stepped down here by breaking the one rule it exists to keep. */
+@media (max-height: 620px) {
   .about-overlay .lede {
     font-size: clamp(0.94rem, 1.35vw, 1.04rem);
-    line-height: 1.55;
-  }
-
-  .about-stamp {
-    font-size: clamp(1.75rem, 3.3vw, 2.7rem);
-  }
-
-  .about-terminal p.about-terminal-copy {
-    font-size: clamp(0.86rem, 1.05vw, 0.92rem);
     line-height: 1.55;
   }
 }
