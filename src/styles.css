@@ -21,8 +21,8 @@
 
 /* Façade (Est cut) — Éléonore Fines / Velvetyne, SIL Open Font License. Only the
    Est cut is bundled: it is the one used, and the family ships four.
-   A display face used at display size in exactly one place (the About heading
-   and its stamp), so it is *not* preloaded — it is several screens down, and
+   A display face used at display size in exactly one place, on three words of
+   the About heading, so it is *not* preloaded — it is several screens down, and
    blocking the first paint on it would trade a real cost for a theoretical
    flash. `swap` means the heading is readable in Space Grotesk the moment it
    scrolls into view, and sharpens when the 7KB arrives. */
@@ -48,12 +48,13 @@
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
   /* Deliberately a third face, not a replacement for --font-mono. Departure
      Mono is a 6×11 pixel-grid design: superb as a label, a counter or a
-     terminal chrome line, actively hard to read at paragraph length or above
-     ~1rem where the pixel steps start to show. Every use of this token is a
-     short string in caps or digits — never body copy, never a heading. */
+     terminal chrome line, actively hard to read at paragraph length where the
+     pixel steps start to show. Its display sizes are reserved for short strings
+     in caps — the hero's headline and the About stamp — and it never sets body
+     copy. */
   --font-terminal: "Departure Mono", "JetBrains Mono", ui-monospace, monospace;
   /* The site's one ornament. Façade is an architectural display face — flat
-     planes stacked into letterforms — and it is spent on four words in the
+     planes stacked into letterforms — and it is spent on three words in the
      About act, where the page stops describing the work and starts describing
      the person. It never sets a sentence, only the nouns that carry the idea. */
   --font-facade: "Facade Est", var(--font-display);
@@ -1106,8 +1107,13 @@ footer {
    The portrait is the stage. It's pinned for the whole act while a mosaic of
    ink tiles clears off it, and the copy lands on top once it has resolved. */
 
+/* 100svh of stage + 4.15 timeline units at the 66.67svh each unit has always
+   been worth. The stamp's decode costs the act about 1.2 screens of scroll; the
+   66.67 figure is what it is bought *with*, because holding it constant is what
+   leaves the portrait resolve and the copy reveal moving at exactly the speed
+   they moved at before there was a stamp. */
 .act-about {
-  height: 260svh;
+  height: 377svh;
 }
 
 .about-stage {
@@ -1260,6 +1266,30 @@ footer {
   letter-spacing: 0.01em;
 }
 
+/* The stamp: the act's one display moment, and the only string on the page that
+   arrives instead of being read. Departure Mono, because this is machine output
+   and the face is what says so — the same argument the hero's headline makes at
+   the same kind of size.
+
+   The size is the heading's own clamp scaled by 1.13 rather than a clamp of its
+   own. "Slightly larger than the heading" has to hold at *every* width, and two
+   independently authored clamps drift back together through the middle of their
+   range: at 1200px a 3.4vw heading and a 3.6vw stamp differ by half a pixel.
+
+   The air on both sides is what makes this a separate beat rather than a third
+   line of the heading, and it is measured in vh as well as rem — this act is
+   pinned to exactly one screen, so the space around the stamp is the first
+   place a short viewport takes anything back. */
+.about-stamp {
+  font-family: var(--font-terminal);
+  font-weight: 400;
+  font-size: clamp(2.03rem, 3.84vw, 3.16rem);
+  line-height: 1.06;
+  letter-spacing: 0.005em;
+  color: var(--paper);
+  margin: clamp(1.8rem, 6.5vh, 4rem) 0 clamp(1.6rem, 5.5vh, 3.4rem);
+}
+
 /* The terminal-enthusiast note. Indented off the copy column and narrower than
    it, so it reads as an aside written *under* the heading rather than as
    another paragraph in the same voice — which is what it is. The rule above it
@@ -1269,16 +1299,6 @@ footer {
   max-width: 54ch;
   padding-top: clamp(0.8rem, 1.8vh, 1.1rem);
   border-top: 1px solid var(--line);
-}
-
-.about-terminal-label {
-  margin: 0 0 clamp(0.4rem, 0.9vh, 0.6rem);
-  font-family: var(--font-facade);
-  font-weight: 400;
-  font-size: clamp(1.3rem, 2vw, 1.75rem);
-  line-height: 1.1;
-  letter-spacing: 0.03em;
-  color: var(--paper);
 }
 
 .about-terminal p.about-terminal-copy {
@@ -1380,6 +1400,87 @@ footer {
   .about-terminal {
     margin-left: 0;
     max-width: none;
+  }
+}
+
+/* Below this width the phrase is wider than the copy column at any size that is
+   still larger than the heading, so it sets on two lines. 450px is measured,
+   not guessed: the resolved string is 395px at the 2.03rem floor, both gutters
+   together are 12vw above 400px, and 0.88 x 450 is the first viewport that
+   clears 395.
+
+   The box is held at two lines from the start. The string is one line until
+   character nine, and without the reservation everything below the stamp would
+   jump down the screen part-way through the decode. */
+@media (max-width: 450px) {
+  .about-stamp {
+    min-height: calc(2 * 1.06em);
+  }
+}
+
+/* Two squeezes, for two different reasons. A short viewport has less room. A
+   narrow one has a *taller* column, because every paragraph in it wraps to more
+   lines — at 375px the heading alone gains a line and 43px over what it needs at
+   390px. Either way the column has to come back to fit the one screen it is
+   pinned in, and the stamp's air is where most of it comes from: it is the most
+   expensive thing in the column and the only part of it whose job is still done
+   at half the size. */
+@media (max-height: 800px), (max-width: 400px) {
+  .about-overlay .section-title {
+    margin-bottom: clamp(0.6rem, 1.8vh, 1rem);
+  }
+
+  .about-stamp {
+    margin: clamp(0.6rem, 1.8vh, 1.1rem) 0 clamp(0.6rem, 1.8vh, 1.1rem);
+  }
+
+  .about-overlay .lede {
+    font-size: clamp(0.92rem, 1.35vw, 1.02rem);
+    line-height: 1.55;
+  }
+
+  .about-facts {
+    margin-top: clamp(0.6rem, 1.8vh, 1.1rem);
+    gap: clamp(0.2rem, 0.6vh, 0.35rem);
+  }
+
+  .about-facts li {
+    padding-top: clamp(0.2rem, 0.6vh, 0.35rem);
+  }
+
+  .about-terminal {
+    margin-top: clamp(0.6rem, 1.8vh, 1.1rem);
+    padding-top: clamp(0.4rem, 1vh, 0.6rem);
+  }
+
+  .about-terminal p.about-terminal-copy {
+    font-size: 0.84rem;
+    line-height: 1.55;
+  }
+}
+
+/* Below this height the column is simply taller than the screen it is pinned
+   in, and no amount of tightening closes the gap — at 375×667 the copy on its
+   own runs to 690px against 667. The act stops pinning and behaves exactly as
+   it does under reduced motion: ordinary flow, ordinary section padding,
+   everything resolved on arrival. See the `prefers-reduced-motion` block at the
+   end of this file, which this deliberately mirrors.
+
+   `isShortViewport` in AboutStage is the other half of it. Left as CSS alone
+   the timeline would still be built and scrubbed against a pin that no longer
+   exists, which is worse than either state on its own. */
+@media (max-height: 700px) {
+  .act-about {
+    height: auto;
+  }
+
+  .act-about .about-stage {
+    position: relative;
+    top: auto;
+    height: auto;
+    min-height: 0;
+    display: block;
+    padding: clamp(4rem, 9vh, 6rem) var(--gutter);
   }
 }
 
