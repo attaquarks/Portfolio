@@ -12,6 +12,13 @@ shots/
 background.mp4
 ascii-image-phosphor-quartz.png
 DepartureMono-1.500/
+# The Facade release the stamp font was cut from. Only Facade-Est.woff and its
+# licence are shipped, and those are in public/fonts/ — the rest is a 4MB
+# download that nothing at runtime reads.
+Facade-font-master/
+
+# tooling cache (the impeccable design-review skill)
+.impeccable/
 
 # editor / OS
 .DS_Store

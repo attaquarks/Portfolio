@@ -57,6 +57,23 @@ export default function App() {
       <main>
         <HeroScene />
 
+        {/* Immediately after the hero, and the position is the point: the
+            constellation is the hero backdrop's successor, so its container
+            begins exactly where the hero's does not. Measured before this move,
+            the hero finished at 1800px and the constellation mounted at 3465 —
+            405px of nothing between the wallpaper's last pixel and the first
+            star, crossed over three screens of linear fade.
+
+            It still contributes no height of its own: the -100svh margin in its
+            rule pulls the stack act back up over it, so mounting it here moves
+            nothing below it in the document. It is a direct child of <main>
+            rather than a child of #projects because a sticky element only sticks
+            for as long as its parent's box lasts, and this one has to stay
+            pinned to the bottom of the page. */}
+        <Suspense fallback={null}>
+          <ProjectConstellation count={projects.length} />
+        </Suspense>
+
         {/* The anchor lives on the wrapper, not the sticky section: a sticky
             element's box moves under you, so it's a moving scroll target. */}
         <div className="act act-stack" id="stack">
@@ -71,18 +88,6 @@ export default function App() {
             </div>
           </section>
         </div>
-
-        {/* Outside #projects, and that placement is the whole point: a sticky
-            element only sticks for as long as its parent's box lasts, so
-            declared inside the projects section the constellation stopped dead
-            at that section's edge. As a direct child of <main> it stays pinned
-            from here to the bottom of the page, and the camera keeps travelling
-            behind the approach rows, the portrait stage and the sign-off.
-            It still contributes no height of its own — the -100svh margin in
-            its rule pulls the next section back up over it. */}
-        <Suspense fallback={null}>
-          <ProjectConstellation count={projects.length} />
-        </Suspense>
 
         <section id="projects">
           <div className="section-inner">

@@ -32,7 +32,8 @@ const REPO = 'C:\\Users\\Atta\\Documents\\Projects\\Portfolio';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const CANDIDATES = [
-  ['live', '/_lab-live.png'],
+  ['live @ t0', '/_lab-live.png'],
+  ['live @ t0+14s', '/_lab-live2.png'],
   ['old poster (10 KB jpg)', '/fluid-poster.jpg'],
   ['new q92 webp', '/_lab-poster-q92.webp'],
   ['new q78 webp', '/_lab-poster-q78.webp'],
@@ -90,6 +91,16 @@ const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyond
 const buf = Buffer.from(shot.result.data, 'base64');
 writeFileSync(`${REPO}\\dist\\_lab-live.png`, buf);
 console.log(`live frame captured: ${(buf.length / 1024).toFixed(1)} KB`);
+
+// A second live frame, this far apart. The field is animated, so if two live
+// frames disagree on mean luma by as much as a candidate does, the candidates
+// were simply captured at a different moment and nothing is wrong. If they
+// agree, the difference is real and the capture path is at fault.
+await sleep(14000);
+const shot2 = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+const buf2 = Buffer.from(shot2.result.data, 'base64');
+writeFileSync(`${REPO}\\dist\\_lab-live2.png`, buf2);
+console.log(`second live frame captured: ${(buf2.length / 1024).toFixed(1)} KB`);
 
 const results = await evaluate(`(async () => {
   const measure = async (u) => {

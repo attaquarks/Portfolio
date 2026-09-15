@@ -237,8 +237,20 @@ section {
   opacity: var(--fluid-opacity, 1);
   /* A real frame of the same piece, painted from CSS with no JavaScript in the
      way. It is what makes the first frame of the page look finished, and it is
-     what remains if WebGL is unavailable or motion is switched off. */
-  background: url("/fluid-poster.jpg") center / cover no-repeat;
+     what remains if WebGL is unavailable or motion is switched off.
+
+     Rebuilt from the shader itself on 2026-09-16, and WebP rather than JPEG,
+     because the old one was the blockiest thing on the page. 1280x720 in
+     10162 bytes is about 0.011 bits per pixel, and it showed: measured against
+     a live frame, its 8-pixel edges carried a step of 0.453 luma levels where
+     the render's own is 0.117, and it was 68 luma where the render is 40 — so
+     the page got brighter and coarser the moment the poster appeared and
+     dropped back when the canvas crossfaded in. At WebP q78 the step is 0.116
+     and the luma 40.1, which is the same surface to within measurement. The
+     480px buffer is *not* the cause of anyone's blockiness: it is stretched by
+     CSS bilinear, nothing in this file sets `image-rendering`, and the live
+     surface measures flat across every period from 2 to 32. */
+  background: url("/fluid-poster.webp") center / cover no-repeat;
   /* The canvas is a live surface behind everything; promoting it once keeps
      section compositing off its back. */
   will-change: opacity;
@@ -974,7 +986,15 @@ h2.section-title {
 
 /* Sticky rather than pinned, and pulled back out of flow with a negative
    margin so the camera path stays in frame for the whole section while
-   contributing no height of its own. */
+   contributing no height of its own.
+
+   The gate is a custom property, not a class or a `display` toggle, so that the
+   reduced-motion block below can keep a different resting level for the same
+   element without either rule having to know about the other. Default 0: the
+   only frame that can see this before the effect runs is one where the element
+   happens to be on screen because the page was restored mid-scroll, and a star
+   field appearing for a single frame during the hero is worse than one that is
+   a frame late. */
 .constellation {
   position: sticky;
   top: 0;
@@ -982,6 +1002,7 @@ h2.section-title {
   margin-bottom: -100svh;
   z-index: 0;
   pointer-events: none;
+  opacity: var(--constellation-opacity, 0);
 }
 
 /* Everything below the constellation shares it as a backdrop, and a static block
@@ -1938,14 +1959,15 @@ footer a:hover {
     display: none;
   }
 
-  /* The camera path is scroll-driven; parked, a static frame of the graph is
-     the honest version of it. The -100svh margin has to go with the sticky
-     positioning — left in place it pulls the section up over the one above. */
+  /* The handoff stays: the wallpaper ends where the hero does and the
+     constellation begins there, in flow, with no sticky and no gate. Where the
+     two backdrops meet is structure, and structure does not change because
+     motion is switched off. */
   .constellation {
     position: relative;
     height: 42svh;
     margin-bottom: 0;
-    opacity: 0.5;
+    opacity: calc(var(--constellation-opacity, 0) * 0.5);
   }
 
   /* No engine is mounted at all under reduced motion (see FluidBackground) —

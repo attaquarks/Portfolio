@@ -17,12 +17,52 @@ function palette() {
   const style = getComputedStyle(document.documentElement);
   const read = (name: string, fallback: string) =>
     style.getPropertyValue(name).trim() || fallback;
+
+  const glow = new THREE.Color(read('--glow', '#4fe8c4'));
+  const amber = new THREE.Color(read('--amber', '#f2a65a'));
+  const paper = new THREE.Color(read('--paper', '#edeae2'));
+
+  // Three colours is this site's palette and it stays that way — but three
+  // colours spread across twenty nodes is a legend, not a sky. These two are not
+  // new hues; they are the ones already here, pushed apart: `ice` is the paper
+  // warmed toward the glow, `cyan` is the glow pulled toward blue. Every star is
+  // still recognisably from this page. What grew is the range they span, and a
+  // wider range at the same brightness is what makes a field read as depth.
   return {
-    glow: new THREE.Color(read('--glow', '#4fe8c4')),
+    glow,
     glowDim: new THREE.Color(read('--glow-dim', '#2c8f77')),
-    amber: new THREE.Color(read('--amber', '#f2a65a')),
+    amber,
+    paper,
+    ice: paper.clone().lerp(glow, 0.42),
+    cyan: glow.clone().lerp(new THREE.Color('#79c7ff'), 0.42),
     ink: read('--ink', '#12110f'),
   };
+}
+
+/**
+ * Which of the six a node wears.
+ *
+ * Hashed rather than `i % n`: the nodes are laid out along a helix in index
+ * order, so any repeating pattern over the index paints stripes down the path
+ * and you end up reading the arithmetic instead of the sky. Hashed rather than
+ * `Math.random`, because a constellation whose stars rearranged themselves on
+ * every visit would read as noise rather than as a place.
+ *
+ * Weighted — mint four times in nine, amber twice, one each of ice, cyan and
+ * paper — so the field has a temperature range without any one node looking like
+ * it wandered in from another website.
+ */
+function starHue(colors: ReturnType<typeof palette>, i: number) {
+  let x = Math.imul(i + 1, 2654435761) >>> 0;
+  x ^= x >>> 13;
+  x = Math.imul(x, 1597334677) >>> 0;
+  x ^= x >>> 16;
+  const pick = (x >>> 0) % 9;
+  if (pick < 4) return colors.glow;
+  if (pick < 6) return colors.amber;
+  if (pick === 6) return colors.ice;
+  if (pick === 7) return colors.cyan;
+  return colors.paper;
 }
 
 /** One node per project, threaded along -Z on a slow helix so the camera has
@@ -70,10 +110,16 @@ function Constellation({
   nodes,
   colors,
   progress,
+  flourish,
 }: {
   nodes: THREE.Vector3[];
   colors: ReturnType<typeof palette>;
   progress: Progress;
+  /** 1 at the instant the backdrop hands over, decaying to 0 over about a
+   *  second. The constellation arrives brighter than it lives and settles into
+   *  its drift — which is the difference between a scene that switches on and a
+   *  scene you walked into while something was still fading. */
+  flourish: Progress;
 }) {
   const { camera } = useThree();
   const haloRefs = useRef<(THREE.Sprite | null)[]>([]);
@@ -99,7 +145,10 @@ function Constellation({
   // by hand — otherwise every remount leaks a GPU buffer.
   useEffect(() => () => edges.dispose(), [edges]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
+    flourish.current = Math.max(0, flourish.current - delta / 0.8);
+    const lift = 1 + flourish.current * 0.7;
+
     // Each node brightens as the camera arrives at it. This is the reason the
     // scene is hand-written R3F: the reaction is to *our* scroll progress, which
     // no exported scene file could know about.
@@ -123,12 +172,19 @@ function Constellation({
       const core = coreRefs.current[i];
       if (halo) {
         const material = halo.material as THREE.SpriteMaterial;
-        material.opacity = (0.16 + nearness * 0.4) * passing;
-        halo.scale.setScalar(1.5 + nearness * 1.4);
+        // Both surfaces are additive now, so these numbers are amounts of light
+        // added rather than degrees of opacity. That is the point of the swap:
+        // two halos crossing each other sum to something brighter than either,
+        // and the whole field gains a floor of light where the density is
+        // highest — the top of the helix — which is where the eye should go
+        // first. Raising opacity on a normal-blended material could only ever
+        // approach the colour; it can never exceed it, and nothing glows.
+        material.opacity = (0.24 + nearness * 0.52) * passing * lift;
+        halo.scale.setScalar((1.55 + nearness * 1.5) * (1 + flourish.current * 0.3));
       }
       if (core) {
         const material = core.material as THREE.MeshBasicMaterial;
-        material.opacity = (0.45 + nearness * 0.55) * passing;
+        material.opacity = (0.58 + nearness * 0.5) * passing * lift;
       }
     }
     void progress;
@@ -140,38 +196,56 @@ function Constellation({
         <lineBasicMaterial
           color={colors.glowDim}
           transparent
-          opacity={0.34}
+          opacity={0.5}
           depthWrite={false}
+          blending={THREE.AdditiveBlending}
         />
       </lineSegments>
 
-      {nodes.map((position, i) => (
-        <group key={i} position={position}>
-          <mesh ref={(el) => void (coreRefs.current[i] = el)}>
-            <sphereGeometry args={[0.07, 16, 16]} />
-            <meshBasicMaterial
-              color={i % 3 === 1 ? colors.amber : colors.glow}
-              transparent
-              opacity={0.6}
-            />
-          </mesh>
-          <sprite ref={(el) => void (haloRefs.current[i] = el)} scale={[1.5, 1.5, 1]}>
-            <spriteMaterial
-              map={glow}
-              color={i % 3 === 1 ? colors.amber : colors.glow}
-              transparent
-              opacity={0.16}
-              depthWrite={false}
-              blending={THREE.AdditiveBlending}
-            />
-          </sprite>
-        </group>
-      ))}
+      {nodes.map((position, i) => {
+        const hue = starHue(colors, i);
+        return (
+          <group key={i} position={position}>
+            <mesh ref={(el) => void (coreRefs.current[i] = el)}>
+              <sphereGeometry args={[0.07, 16, 16]} />
+              <meshBasicMaterial
+                color={hue}
+                transparent
+                opacity={0.6}
+                depthWrite={false}
+                blending={THREE.AdditiveBlending}
+              />
+            </mesh>
+            <sprite ref={(el) => void (haloRefs.current[i] = el)} scale={[1.5, 1.5, 1]}>
+              <spriteMaterial
+                map={glow}
+                color={hue}
+                transparent
+                opacity={0.16}
+                depthWrite={false}
+                blending={THREE.AdditiveBlending}
+              />
+            </sprite>
+          </group>
+        );
+      })}
     </group>
   );
 }
 
-function Dust({ count, color, drift }: { count: number; color: THREE.Color; drift: boolean }) {
+function Dust({
+  count,
+  color,
+  size,
+  opacity,
+  drift,
+}: {
+  count: number;
+  color: THREE.Color;
+  size: number;
+  opacity: number;
+  drift: boolean;
+}) {
   const ref = useRef<THREE.Points>(null);
 
   const geometry = useMemo(() => {
@@ -193,18 +267,74 @@ function Dust({ count, color, drift }: { count: number; color: THREE.Color; drif
     ref.current.rotation.y += delta * 0.012;
   });
 
+  // Two of these are drawn, in two colours rather than one, because a single
+  // per-vertex colour is not worth a second shader program compiled at the exact
+  // moment the scene first appears — and because two objects lets the layers
+  // differ in size as well as hue, which reads as depth rather than as a tint.
   return (
     <points ref={ref} geometry={geometry}>
       <pointsMaterial
         color={color}
-        size={0.035}
+        size={size}
         sizeAttenuation
         transparent
-        opacity={0.5}
+        opacity={opacity}
         depthWrite={false}
+        blending={THREE.AdditiveBlending}
       />
     </points>
   );
+}
+
+/**
+ * Compiles every program the scene will ever use, at mount, during idle.
+ *
+ * A WebGL program is linked the first time three draws something that needs it,
+ * and linking is synchronous and cannot be made not to happen. Left alone it
+ * lands on the first frame of the render loop — measured on this project's own
+ * hardware as a 98ms dropped-frame stall at scrollY 1096, with all four of the
+ * scene's programs linking inside a 65ms window there. Starting the loop a
+ * screen early does not help with this, and that was the trap: the warm-up
+ * window moves *when the first frame happens*, but the first frame is itself
+ * the cost, so the window only relocates the stall from the handoff to
+ * mid-hero. It has to happen somewhere; it should happen where nobody is
+ * scrolling.
+ *
+ * compileAsync is not a way to skip the work — it calls compile() synchronously
+ * first — but it uses KHR_parallel_shader_compile where the driver offers it, so
+ * the driver links on its own thread and the wait is a promise instead of a
+ * stall. requestIdleCallback puts the synchronous half into a gap the browser
+ * was going to spend idle anyway, which at this point in the page's life is
+ * most of them: the chunk lands around 3.5s into a page that is already loaded
+ * and being read.
+ */
+function Warmup() {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  const camera = useThree((s) => s.camera);
+
+  useEffect(() => {
+    let cancelled = false;
+    const compile = () => {
+      if (cancelled) return;
+      void (gl.compileAsync
+        ? gl.compileAsync(scene, camera)
+        : Promise.resolve(gl.compile(scene, camera)));
+    };
+    // The timeout is the safety net: an idle callback with no deadline can be
+    // starved indefinitely on a busy page, and a scene that reaches its first
+    // frame uncompiled is the exact failure this exists to prevent.
+    const handle = window.requestIdleCallback
+      ? window.requestIdleCallback(compile, { timeout: 1500 })
+      : window.setTimeout(compile, 200);
+    return () => {
+      cancelled = true;
+      if (window.cancelIdleCallback) window.cancelIdleCallback(handle);
+      window.clearTimeout(handle);
+    };
+  }, [gl, scene, camera]);
+
+  return null;
 }
 
 function CameraRig({
@@ -257,6 +387,7 @@ function CameraRig({
 export function ProjectConstellation({ count }: { count: number }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const progress = useRef(0);
+  const flourish = useRef(0);
   const [active, setActive] = useState(false);
   const reduced = prefersReducedMotion();
 
@@ -276,32 +407,101 @@ export function ProjectConstellation({ count }: { count: number }) {
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
+    const hero = document.querySelector<HTMLElement>('.hero');
+    if (!hero) return;
 
-    // The flight starts when the projects section scrolls into view and runs to
-    // the very bottom of the page, because the constellation is pinned behind
-    // everything below it, not just behind those cards. Ending at the section's
-    // own boundary would park the camera for the whole of the approach, the
-    // portrait and the sign-off — a still frame behind a page that is still
-    // moving. The path is the same length either way; it is simply spread over
-    // the distance the backdrop is actually on screen.
-    const start = document.getElementById('projects') ?? host;
+    // Everything here is measured against one position: the hero's bottom edge
+    // reaching the top of the viewport. That is where the wallpaper stops, where
+    // this component's own container begins, and where the camera's flight
+    // starts — three components reading the same boundary, each expressed as a
+    // ScrollTrigger range rather than as an offset, so a refresh recomputes all
+    // three together instead of three numbers drifting apart.
+    const max = () => ScrollTrigger.maxScroll(window);
+    const boundary = () => hero.offsetTop + hero.offsetHeight;
+
+    // The layer is opaque above the boundary and invisible below it, and the
+    // change is a cut, not a fade — a fade in would put two backdrops on screen
+    // at once through the whole transition, which is the dissolve this is meant
+    // to replace.
+    //
+    // `null` rather than `false` to start, so the first call always writes: on a
+    // fresh load at the top the trigger changes state from nothing to nothing
+    // and would otherwise never fire, leaving the constellation at the CSS
+    // default wherever you happened to open the page.
+    let open: boolean | null = null;
+    const gate = (next: boolean) => {
+      if (next === open) return;
+      open = next;
+      gsap.set(host, { '--constellation-opacity': next ? '1' : '0' });
+      if (next && !reduced) flourish.current = 1;
+    };
+
+    // The render loop runs for one screen of scroll before the handoff and
+    // stops again above it.
+    //
+    // This is deliberately not ScrollTrigger's own `isActive`. ScrollTrigger
+    // recomputes `isActive`, dispatches `onToggle` and dispatches `onUpdate` all
+    // inside one guard on the clipped progress having *changed* — and `onToggle`
+    // is additionally skipped during a refresh. A refresh that moves the
+    // trigger's start while the page is parked somewhere its clipped progress
+    // does not change therefore leaves all three stale, indefinitely. Driving
+    // the loop from `isActive` meant a constellation that rendered for twenty
+    // seconds at scroll 0 in one run, started at the handoff in another, and
+    // started eight seconds in during a third, depending on when the refresh
+    // landed relative to layout. Rendering state is not something to infer from
+    // a callback that may not fire; it is a pure function of where the page is,
+    // so it is computed as one, from the same `boundary()` everything else here
+    // uses, on every scroll event.
+    let rendering = false;
+    const setRendering = (next: boolean) => {
+      if (next === rendering) return;
+      rendering = next;
+      setActive(next);
+    };
+
+    const apply = (y: number) => {
+      const from = boundary();
+      progress.current = THREE.MathUtils.clamp(
+        (y - from) / Math.max(max() - from, 1),
+        0,
+        1
+      );
+      if (y < from) flourish.current = 0;
+      setRendering(y >= from - window.innerHeight);
+      gate(y >= from);
+    };
 
     const trigger = ScrollTrigger.create({
-      trigger: start,
-      start: 'top bottom',
-      end: () => ScrollTrigger.maxScroll(window),
+      trigger: hero,
+      // The whole page, rather than a window around the boundary. The range
+      // below is the one place the numbers this component cares about are
+      // derived, and deriving them needs `onUpdate` to fire — which it only does
+      // while the trigger is active. A range that starts at the boundary would
+      // go silent everywhere above it, which is precisely where the render loop
+      // has to be able to switch *off*.
+      start: 0,
+      // Past the end of the page rather than at it, so the trigger is still
+      // active on the last pixel. Ending at maxScroll would make it go silent at
+      // exactly the scroll position where the field is the only thing on screen
+      // behind the footer.
+      end: () => max() + window.innerHeight,
       invalidateOnRefresh: true,
-      onUpdate: (self) => {
-        progress.current = self.progress;
-      },
-      // Rendering a WebGL scene nobody can see is the single most expensive
-      // mistake available here, so the loop is switched off the moment the
-      // section leaves the viewport.
-      onToggle: (self) => setActive(self.isActive),
+      onUpdate: (self) => apply(self.scroll()),
     });
 
-    return () => trigger.kill();
-  }, []);
+    // `onUpdate` is a scroll callback, and a page can load with the scroll
+    // already behind it — a deep link to #projects, or a restored position. So
+    // the same function runs once at mount, on the next frame, because at this
+    // point in the effect the hero's `100svh` beats have not necessarily been
+    // laid out yet and a boundary measured now can be a fraction of its real
+    // value.
+    const first = requestAnimationFrame(() => apply(window.scrollY));
+
+    return () => {
+      cancelAnimationFrame(first);
+      trigger.kill();
+    };
+  }, [reduced]);
 
   return (
     <div className="constellation" ref={hostRef} aria-hidden>
@@ -313,11 +513,29 @@ export function ProjectConstellation({ count }: { count: number }) {
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       >
         {/* Fog in --ink so the far end of the constellation dissolves into the
-            page background instead of ending on a visible edge. */}
+            page background instead of ending on a visible edge. With additive
+            blending the fog reads as "light that never arrives" rather than as
+            haze, which is why the far field can be dimmer than it was. */}
         <fog attach="fog" args={[colors.ink, 7, 32]} />
         <CameraRig curve={curve} progress={progress} reduced={reduced} />
-        <Constellation nodes={nodes} colors={colors} progress={progress} />
-        <Dust count={dustCount} color={colors.glowDim} drift={!reduced} />
+        <Constellation
+          nodes={nodes}
+          colors={colors}
+          progress={progress}
+          flourish={flourish}
+        />
+        <Dust count={dustCount} color={colors.glowDim} size={0.035} opacity={0.62} drift={!reduced} />
+        <Dust
+          count={Math.round(dustCount * 0.45)}
+          color={colors.cyan}
+          size={0.046}
+          opacity={0.55}
+          drift={!reduced}
+        />
+        {/* Last child on purpose: its effect has to run after every object above
+            has been attached to the scene, or it compiles a graph with holes in
+            it. */}
+        <Warmup />
       </Canvas>
     </div>
   );

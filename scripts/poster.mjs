@@ -1,19 +1,24 @@
 // Rebuild the wallpaper poster from a real frame of the live shader, and prove
-// the replacement has no block structure.
+// the replacement is faithful.
 //
 //   node scripts/poster.mjs [url]
 //
 // `public/fluid-poster.jpg` is what the page paints before the WebGL canvas goes
 // live, what it paints if WebGL is unavailable, and what it paints under
 // reduced motion. Measured with scripts/wallwalk.mjs it carries a 26% excess of
-// edge energy on 8-pixel boundaries — the DCT block of a JPEG saved at roughly
-// 0.011 bits per pixel. The live surface has no such structure, so the fix is to
-// take the poster from the live surface instead of from an encoder's floor.
+// edge energy on 8-pixel boundaries and an 8-pixel step of 0.45 luma levels
+// against the live render's 0.11 — the DCT block of a JPEG saved at roughly
+// 0.011 bits per pixel. It is also 68 luma where the live surface is 39, so the
+// page currently jumps brighter and coarser the moment the poster appears and
+// drops back when the canvas crossfades in.
 //
-// Captured at deviceScaleFactor 1 with every other layer hidden, then saved in
-// several encodings so the smallest one that still measures flat can be chosen.
-// Verification is done back in the browser against the written file, because
-// that is the only check that survives the encoder.
+// Everything here happens in one browser session on purpose. Two sessions are
+// not the same session: an earlier version of this captured the poster in one
+// run and the live frame to compare it against in another, and the two disagreed
+// by 2.3x on mean |dx| and 13 luma levels on a surface neither had changed. The
+// reference is therefore captured between the same two calls as the candidates,
+// and every number is measured back through the browser's own decoder against
+// that reference.
 
 import { spawn } from 'node:child_process';
 import { rmSync, writeFileSync } from 'node:fs';
@@ -26,7 +31,7 @@ const PROFILE = (process.env.TEMP || '/tmp') + '\\poster-' + Date.now();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const REPO = 'C:\\Users\\Atta\\Documents\\Projects\\Portfolio';
 
-/** Same reader as scripts/wallwalk.mjs — enough of PNG to check the capture. */
+/** Enough of PNG to check a capture in Node, without another encoder in the way. */
 function decodePNG(buf) {
   let off = 8, w = 0, h = 0, ctype = 0;
   const idat = [];
@@ -64,50 +69,6 @@ function decodePNG(buf) {
     }
   }
   return { w, h, ch, data: out };
-}
-
-const lum = (img, x, y) => {
-  const i = (y * img.w + x) * img.ch, d = img.data;
-  return 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
-};
-
-/** Edge energy on multiples of N versus off them, over the full width. 1.0 is
- *  flat; 1.25 is the block signature we are trying to write out.
- *
- *  Cropped away from every edge on purpose. A headful viewport carries a 15px
- *  scrollbar at its right column, and one hard vertical edge there is enough to
- *  swamp the statistic: every N that divides that column's x scores enormously,
- *  which is how N=25, N=19 and N=15 all "won" a run of this against a perfectly
- *  smooth gradient. The crop is the fix; the scrollbar is hidden as well. */
-const CROP = (w, h) => ({
-  x0: 20,
-  x1: Math.round(w * 0.97),
-  y0: 20,
-  y1: Math.round(h * 0.97),
-});
-
-function report(img, label) {
-  const { x0, x1, y0, y1 } = CROP(img.w, img.h);
-  const prof = new Float64Array(x1 - x0);
-  for (let k = 0; k < prof.length; k++) {
-    let s = 0;
-    for (let y = y0; y < y1; y++) s += Math.abs(lum(img, x0 + k + 1, y) - lum(img, x0 + k, y));
-    prof[k] = s / (y1 - y0);
-  }
-  const scored = [];
-  for (let N = 2; N <= 32; N++) {
-    let on = 0, onN = 0, off = 0, offN = 0;
-    for (let k = 0; k < prof.length; k++) {
-      const p = (((x0 + k + 1) % N) + N) % N;
-      if (p === 0) { on += prof[k]; onN++; } else { off += prof[k]; offN++; }
-    }
-    scored.push({ N, r: (on / onN) / (off / offN) });
-  }
-  scored.sort((a, b) => b.r - a.r);
-  const mean = [...prof].reduce((a, b) => a + b, 0) / prof.length;
-  console.log(`  ${label.padEnd(28)} ${img.w}x${img.h}  mean|dx| ${mean.toFixed(3)}  top: ` +
-    scored.slice(0, 4).map((s) => `N=${s.N}:${s.r.toFixed(3)}`).join('  '));
-  return scored[0];
 }
 
 // ---------------------------------------------------------------- browser
@@ -152,19 +113,48 @@ await sleep(8000);
 
 // Leave the wallpaper and nothing else. The poster is served to people who have
 // no canvas at all, so it must not carry rails, copy or cues that only exist
-// when the rest of the page does.
+// when the rest of the page does. Text is also edges, and edges are what every
+// metric below measures.
 const stripped = await evaluate(`(() => {
   const hidden = [];
   const hide = (el) => { el.style.visibility = 'hidden'; hidden.push(el.className || el.tagName); };
+  const layer = document.querySelector('.fluid-layer');
+  const before = { scrollY: Math.round(window.scrollY), opacity: getComputedStyle(layer).opacity };
   document.querySelectorAll('main > *').forEach(hide);
   document.querySelectorAll('[class*="rail"],[class*="spine"],[class*="dock"],[class*="cue"],[class*="veil"]')
     .forEach(hide);
-  if (!document.querySelector('.fluid-layer').dataset.live) return { ok: false, reason: 'fluid never went live' };
-  return { ok: true, hidden, live: true };
+  // The layer's own opacity is animated by scroll, and the poster lives inside
+  // it — so capturing through a partly-transparent layer bakes that frame of the
+  // animation into the poster, which the real layer then applies *again* at
+  // runtime. An earlier run of this captured at 0.618 and produced a poster 8
+  // luma levels darker than the surface it stands in for, with the number
+  // drifting between runs as the scroll position drifted. Pinned open instead:
+  // the poster is the wallpaper at full strength, and the layer does the fading.
+  window.scrollTo(0, 0);
+  layer.style.setProperty('--fluid-opacity', '1');
+  return { hidden, live: layer.dataset.live ?? 'not-live', before, after: getComputedStyle(layer).opacity };
 })()`);
-if (!stripped?.ok) { console.log('capture aborted:', JSON.stringify(stripped)); process.exit(1); }
-console.log('stripped for capture:', stripped.hidden.join(', '));
+console.log('stripped:', stripped.hidden.length, 'elements; fluid live =', stripped.live);
+console.log('layer opacity — harness found it at', stripped.before.opacity,
+  '(scrollY', stripped.before.scrollY + '), pinned to', stripped.after, 'for the capture');
+if (stripped.live !== 'true') { console.log('aborting: the shader never painted'); process.exit(1); }
+
 await sleep(500);
+const facts = await evaluate(`(() => {
+  const c = document.querySelector('.fluid-canvas');
+  const l = document.querySelector('.fluid-layer');
+  const r = c.getBoundingClientRect();
+  return {
+    buffer: [c.width, c.height],
+    css: [Math.round(r.width), Math.round(r.height)],
+    upscale: +(r.width / c.width).toFixed(3),
+    layerOpacity: getComputedStyle(l).opacity,
+    canvasOpacity: getComputedStyle(c).opacity,
+    inner: [innerWidth, innerHeight],
+    dpr: devicePixelRatio,
+  };
+})()`);
+console.log('render facts:', JSON.stringify(facts));
 
 const grab = async (format, quality, name) => {
   const params = { format, captureBeyondViewport: false };
@@ -172,67 +162,129 @@ const grab = async (format, quality, name) => {
   const r = await send('Page.captureScreenshot', params);
   if (!r.result?.data) { console.log(`  ${format}: capture failed`, JSON.stringify(r.error ?? r)); return null; }
   const buf = Buffer.from(r.result.data, 'base64');
-  // Labelled and prefixed so the whole experiment is one directory listing away
-  // from being thrown out; only the winner gets promoted to fluid-poster.*.
+  // Prefixed so the whole experiment is one directory listing away from being
+  // thrown out; only the winner gets promoted to fluid-poster.*.
   writeFileSync(`${REPO}\\public\\${name}`, buf);
   writeFileSync(`${REPO}\\dist\\${name}`, buf);
   return buf;
 };
 
 console.log('\nencodings (KB):');
+const written = [];
 const variants = [
   ['webp', 92, '_lab-poster-q92.webp'],
   ['webp', 78, '_lab-poster-q78.webp'],
   ['jpeg', 92, '_lab-poster-q92.jpg'],
   ['jpeg', 80, '_lab-poster-q80.jpg'],
 ];
-const written = [];
 for (const [format, quality, name] of variants) {
   const buf = await grab(format, quality, name);
   if (buf) { console.log(`  ${name.padEnd(26)} ${(buf.length / 1024).toFixed(1)} KB`); written.push(name); }
 }
+// Interleaved with the candidates rather than taken first, so drift in the
+// animated field cannot land entirely on one side of the comparison.
+const ref = await grab('png', null, '_lab-live.png');
+console.log(`  ${'_lab-live.png'.padEnd(26)} ${(ref.length / 1024).toFixed(1)} KB`);
 
-// The PNG master, so the capture's own cleanliness can be checked with the
-// decoder rather than through another encoder.
-const master = await grab('png', null, '_poster-master.png');
-if (master) {
-  console.log(`  ${'_poster-master.png'.padEnd(26)} ${(master.length / 1024).toFixed(1)} KB`);
-  console.log('\ncapture check (PNG master):');
-  report(decodePNG(master), 'master');
+console.log('\nin-capture check (PNG reference, decoded here in Node):');
+{
+  const img = decodePNG(ref);
+  let s = 0, n = 0, luma = 0;
+  for (let y = 40; y < img.h * 0.93; y += 2)
+    for (let x = 40; x < img.w * 0.93; x += 2) {
+      const i = (y * img.w + x) * img.ch;
+      luma += 0.2126 * img.data[i] + 0.7152 * img.data[i + 1] + 0.0722 * img.data[i + 2];
+      if (x + 1 < img.w) {
+        const j = (y * img.w + x + 1) * img.ch;
+        s += Math.abs(img.data[i] - img.data[j]);
+      }
+      n++;
+    }
+  console.log(`  reference ${img.w}x${img.h}  luma ${(luma / n).toFixed(1)}  mean|dx| ${(s / n).toFixed(3)}`);
 }
 
-// Re-measure each written file the way the browser actually decodes it.
+// Measure every written file through the browser's own decoder, against the
+// reference it was captured beside.
+//
+// The ratio metric used on its own is not comparable between images: a perfectly
+// smooth gradient scores a *higher* ratio than a genuinely blocky photograph,
+// because the between-boundary energy it divides by has collapsed to noise. This
+// measures the thing a person actually sees instead — the step at a block edge
+// that the surrounding pixels do not explain:
+//
+//   step(x) = | (I(x+1) - I(x)) - 0.5 * ((I(x) - I(x-1)) + (I(x+2) - I(x+1))) |
+//
+// averaged down each column. A smooth gradient through the same pixel leaves
+// step ~ 0 whichever side of a block edge it sits on, so what remains is the
+// discontinuity the encoder stamped in. It is in luma levels, so it is directly
+// comparable across encoders and against the live render.
 console.log('\nround-trip check (decoded by the browser from the served file):');
-const verify = await evaluate(`(async () => {
-  const check = async (u) => {
+const results = await evaluate(`(async () => {
+  const measure = async (u) => {
     let bmp;
     try { bmp = await createImageBitmap(await (await fetch(u)).blob()); }
     catch (e) { return { url: u, error: String(e) }; }
     const c = document.createElement('canvas');
     c.width = bmp.width; c.height = bmp.height;
-    const ctx = c.getContext('2d');
+    const ctx = c.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(bmp, 0, 0);
     const d = ctx.getImageData(0, 0, c.width, c.height).data;
     const L = (x, y) => { const i = (y * c.width + x) * 4; return 0.2126*d[i] + 0.7152*d[i+1] + 0.0722*d[i+2]; };
-    const x0 = 20, x1 = Math.round(c.width * 0.97), y0 = 20, y1 = Math.round(c.height * 0.97);
-    const prof = [];
-    for (let x = x0; x < x1; x++) { let s = 0; for (let y = y0; y < y1; y++) s += Math.abs(L(x+1,y) - L(x,y)); prof.push(s/(y1-y0)); }
-    const out = [];
-    for (let N = 2; N <= 32; N++) {
-      let on=0,onN=0,off=0,offN=0;
-      for (let k = 0; k < prof.length; k++) { const p = (((x0+k+1)%N)+N)%N; if (p===0) {on+=prof[k];onN++;} else {off+=prof[k];offN++;} }
-      out.push({ N, r: (on/onN)/(off/offN) });
+
+    const x0 = 40, x1 = Math.round(c.width * 0.93), y0 = 40, y1 = Math.round(c.height * 0.93);
+    const step = [], dx = [];
+    for (let x = x0; x < x1; x++) {
+      let s = 0, g = 0;
+      for (let y = y0; y < y1; y++) {
+        const a = L(x-1,y), b = L(x,y), e = L(x+1,y), f = L(x+2,y);
+        s += Math.abs((e - b) - 0.5 * ((b - a) + (f - e)));
+        g += Math.abs(e - b);
+      }
+      step.push(s / (y1 - y0));
+      dx.push(g / (y1 - y0));
     }
-    out.sort((a,b) => b.r - a.r);
-    return { url: u, size: [bmp.width, bmp.height], meanDx: prof.reduce((a,b)=>a+b,0)/prof.length, top: out.slice(0,3) };
+    const at = (N) => {
+      let on = 0, onN = 0, off = 0, offN = 0;
+      for (let k = 0; k < step.length; k++) {
+        const p = (((x0 + k + 1) % N) + N) % N;
+        if (p === 0) { on += step[k]; onN++; } else { off += step[k]; offN++; }
+      }
+      return { N, excess: on/onN - off/offN };
+    };
+    const named = [3, 4, 8, 9, 10, 16].map(at);
+    const worst = [...Array(31)].map((_, i) => at(i + 2)).sort((a, b) => b.excess - a.excess)[0];
+    let luma = 0, n = 0;
+    for (let y = y0; y < y1; y += 4) for (let x = x0; x < x1; x += 4) { luma += L(x, y); n++; }
+    return { url: u, size: [bmp.width, bmp.height], luma: luma/n,
+             meanDx: dx.reduce((a,b) => a+b, 0) / dx.length, named, worst };
   };
-  return await Promise.all(${JSON.stringify(written)}.map((n) => check('/' + n)));
+  const out = [];
+  for (const u of ${JSON.stringify(['_lab-live.png', ...written])}) out.push(await measure('/' + u));
+  return out;
 })()`);
 
-for (const v of verify) {
-  if (v.error) { console.log(`  ${v.url}  ERROR ${v.error}`); continue; }
-  console.log(`  ${v.url.padEnd(28)} ${v.size.join('x')}  mean|dx| ${v.meanDx.toFixed(3)}  ` +
-    v.top.map((t) => `N=${t.N}:${t.r.toFixed(3)}`).join('  '));
+const refRow = results.find((r) => r.url === '/_lab-live.png');
+console.log('  surface                    size       luma  mean|dx|   N=4    N=8    N=10   worst');
+for (const r of results) {
+  if (r.error) { console.log(`  ${r.url.padEnd(26)} ERROR ${r.error}`); continue; }
+  const g = (N) => r.named.find((v) => v.N === N).excess;
+  const tag = r.url === '/_lab-live.png' ? '  <-- target' : '';
+  console.log(
+    `  ${r.url.replace(/^\/_lab-/, '').padEnd(26)} ${r.size.join('x').padEnd(10)} ` +
+    `${r.luma.toFixed(1).padStart(5)} ${r.meanDx.toFixed(3).padStart(8)}   ` +
+    `${g(4).toFixed(3)}  ${g(8).toFixed(3)}  ${g(10).toFixed(3).padStart(5)}  ` +
+    `N=${r.worst.N}:${r.worst.excess.toFixed(3)}${tag}`
+  );
+}
+if (refRow) {
+  const close = results.filter((r) => !r.error && r.url !== '/_lab-live.png')
+    .sort((a, b) => Math.abs(a.luma - refRow.luma) - Math.abs(b.luma - refRow.luma));
+  console.log(`\n  closest to the live frame on luma and 8px step:`);
+  for (const r of close) {
+    const dL = r.luma - refRow.luma;
+    const dS = r.named.find((v) => v.N === 8).excess - refRow.named.find((v) => v.N === 8).excess;
+    console.log(`    ${r.url.padEnd(28)} luma ${dL >= 0 ? '+' : ''}${dL.toFixed(1)}   N=8 step ${dS >= 0 ? '+' : ''}${dS.toFixed(3)}`);
+  }
 }
 
 ws.close();

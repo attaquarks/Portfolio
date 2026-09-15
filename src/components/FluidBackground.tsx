@@ -256,24 +256,37 @@ export function FluidBackground() {
     window.addEventListener('resize', onResize);
 
     /**
-     * Act one of three. The wallpaper owns the hero, hands off to the
-     * constellation, and is gone by the time the portrait stage arrives.
+     * Act one of three. The wallpaper owns the hero and stops where the hero
+     * stops — one backdrop hands over to the next, at one position, with nothing
+     * in between.
      *
-     * The fade runs to zero rather than to a low ambient level, and the renderer
-     * switches off with it. Crossfading into the constellation is also what
-     * makes the seam between the two invisible: for most of a viewport's worth
-     * of scroll both are partly present, so neither one starts or stops.
+     * It used to run a single linear ramp from the top of the hero to 45% of the
+     * way past the projects section, which spread the handoff over roughly three
+     * screens. A three-screen fade is not a transition; it is a slow change of
+     * ambient brightness, and the eye reads it as the same surface getting
+     * dimmer rather than as arriving somewhere else. The wallpaper is now
+     * undimmed for the whole hero — the copy sits on the veil, not on a faded
+     * background — and then goes over the last stretch of the hero, so the two
+     * backdrops are never both on screen and the seam is a cut.
+     *
+     * The renderer switches off with it: below the boundary there is nothing
+     * this canvas can contribute, and under the constellation it would be a
+     * full-viewport shader running behind an opaque scene.
      */
+    const HOLD = 96;
     const zone = ScrollTrigger.create({
-      start: 0,
-      end: () => {
-        const projects = document.getElementById('projects');
-        const top = projects ? projects.offsetTop : window.innerHeight * 2.5;
-        return Math.max(top - window.innerHeight * 0.45, window.innerHeight);
-      },
+      // The hero's own box, so the boundary is expressed the same way here as it
+      // is in the constellation — one position read twice, recomputed together
+      // on every refresh.
+      trigger: '.hero',
+      start: 'top top',
+      end: 'bottom top',
       invalidateOnRefresh: true,
       onUpdate: (self) => {
-        const opacity = 1 - self.progress;
+        // Distance remaining to the boundary, so the fade is the last 96px of
+        // scroll before it whatever the hero's height turns out to be.
+        const remaining = (1 - self.progress) * (self.end - self.start);
+        const opacity = Math.min(1, remaining / HOLD);
         gsap.set(host, { '--fluid-opacity': opacity });
         const next = opacity > 0.02;
         if (next !== visible) {
