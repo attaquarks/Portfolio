@@ -283,9 +283,15 @@ export function AboutStage() {
               comes first and the sentence about it follows, which is the order
               the hero's brackets set up three sections earlier.
 
-              It is the hero's third bracket spent properly: Departure Mono,
-              because this is machine output and the face is what says so, and
-              set apart from the heading below and the prose under that by air
+              It is the hero's third bracket spent properly, and it is set in
+              Façade Est — the site's one ornamental face — rather than in
+              Departure Mono. The pixel-grid face says *this is machine output*,
+              which the scramble already says on its own; what it cannot do is
+              look like it was stamped. Façade Est's planes are heavy enough to
+              read as impressed into the page at this size, which is what the
+              phrase is doing here, and it keeps the act from spending its one
+              display moment in the same face as the code blocks two acts up.
+              Set apart from the heading below and the prose under that by air
               rather than by a rule. Centred, because it is the one element in
               this column that is not part of the reading — it is a stamp.
 
@@ -303,9 +309,19 @@ export function AboutStage() {
               words until 2026-09-15, when the stamp above took over as the act's
               display moment — two ornamental treatments in one column is one
               too many, and the stamp is the one that says something the plain
-              face cannot. */}
+              face cannot.
+
+              The break is authored rather than left to the measure. "Building
+              Software / from a terminal" is how the sentence wants to be read —
+              the object on one line and where it happens on the next — and at
+              some widths an unattended wrap would put "a terminal" alone on the
+              second line and lose that. A hard break holds the reading at every
+              size; there is room for it because "Building Software" is well
+              under the column even at 320px. */}
           <h2 className="section-title about-block">
-            Engineer who builds Software from a terminal:
+            Building Software
+            <br />
+            from a terminal
           </h2>
 
           <p className="lede about-block about-block-late">

@@ -294,14 +294,11 @@ main {
 /* ---------- Hero ---------- */
 
 .hero {
-  display: flex;
-  align-items: flex-end;
-  /* The top padding is what puts the first beat in the first screen and the
-     second one below the fold: the copy is ~800px against a 900px viewport, so
-     it is the only thing deciding where the fold lands. Bottom stays at the
-     gutter the old pinned hero used, and the extra tail at the end of the
-     section is what the handoff fades through. */
-  padding: clamp(7rem, 20vh, 12rem) var(--gutter) 6rem;
+  /* A plain block, where this used to be a flex column pinned to its own bottom
+     edge. The two beats set their own height now, so the section no longer has
+     an opinion about where the copy sits — and it must not, because the copy
+     spans two screens rather than pooling at the fold. */
+  padding: 0 var(--gutter);
 }
 
 /* `inset: 0` alone does NOT stretch a replaced element — see .fluid-media. */
@@ -330,27 +327,48 @@ main {
    above the tail, so the ellipse sits under its middle and the band carries a
    constant floor over the rest of the column. Both layers still return to
    zero at the very bottom edge — a veil that ended on solid --ink would draw a
-   hard horizontal line across the fixed wallpaper at the section's last pixel. */
+   hard horizontal line across the fixed wallpaper at the section's last pixel.
+
+   Two pools now, one per beat, sized and positioned per *screen* rather than
+   per section. The section is two screens tall, so a single radial sized as a
+   percentage of it would stretch to 2× its intended height and pool between
+   the beats — under the empty gap, with both paragraphs sitting on bare
+   wallpaper. `background-size: 100% 100svh` with the second layer offset by one
+   screen keeps the original gradient exactly as it was drawn, one copy per
+   beat. The second pool's centre moves right because beat two is set on the
+   other margin and the pool has to follow the text it exists to hold up.
+
+   The band underneath is deliberately not tiled with them: it has to run the
+   *whole* section and return to zero at the real bottom edge, and repeating a
+   one-screen gradient would put a seam in the middle of the hero. */
 .hero-veil {
   position: absolute;
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  background:
+  background-image:
     radial-gradient(
       88% 62% at 28% 54%,
       rgba(18, 17, 15, 0.86) 0%,
       rgba(18, 17, 15, 0.5) 46%,
       rgba(18, 17, 15, 0) 76%
     ),
+    radial-gradient(
+      88% 62% at 72% 46%,
+      rgba(18, 17, 15, 0.86) 0%,
+      rgba(18, 17, 15, 0.5) 46%,
+      rgba(18, 17, 15, 0) 76%
+    ),
     linear-gradient(
-      to top,
+      to bottom,
       rgba(18, 17, 15, 0) 0%,
-      rgba(18, 17, 15, 0.58) 12%,
-      rgba(18, 17, 15, 0.46) 44%,
-      rgba(18, 17, 15, 0.34) 68%,
-      rgba(18, 17, 15, 0) 88%
+      rgba(18, 17, 15, 0.4) 7%,
+      rgba(18, 17, 15, 0.4) 93%,
+      rgba(18, 17, 15, 0) 100%
     );
+  background-size: 100% 100svh, 100% 100svh, 100% 100%;
+  background-position: 0 0, 0 100svh, 0 0;
+  background-repeat: no-repeat;
 }
 
 .hero-content {
@@ -369,6 +387,33 @@ main {
    The roles line, the headline and the first paragraph all sit inside it. */
 .hero-intro {
   max-width: 900px;
+}
+
+/* One screen each. This is the whole of "only the first beat is visible on
+   arrival": the height comes from the viewport, not from how much copy happens
+   to be in the beat, so a short paragraph cannot let the next one leak above
+   the fold and a long one cannot push past the screen it is centred in.
+
+   `svh` rather than `vh` for the same reason the acts use it — the small
+   viewport height is the one that does not change when mobile browser chrome
+   slides away, so the second beat's top edge does not drift mid-scroll.
+
+   The vertical padding is inside the min-height, so `justify-content: center`
+   centres the copy in what is left once the dock and the fold have taken their
+   share; it is headroom for the fixed dock rather than an aesthetic offset. */
+.hero-beat {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(5.5rem, 14vh, 8rem) 0 clamp(3.5rem, 9vh, 5.5rem);
+}
+
+/* The second beat's exit is what the handoff fades through, so it is given a
+   little more tail than the first. Without it the copy sits against the section
+   boundary and the dissolve has nowhere to happen. */
+.hero-beat-two {
+  padding-bottom: clamp(5rem, 14vh, 9rem);
 }
 
 .hero-eyebrow {
@@ -414,7 +459,11 @@ main {
   font-size: clamp(1.45rem, 5vw, 4.05rem);
   line-height: 1.12;
   font-weight: 400;
-  margin: 0.42em 0 0.46em;
+  /* No bottom margin. The gap under a headline belongs to the paragraph, not to
+     the headline: setting it here would fix it in `em` of a 4rem display size
+     while the paragraph beneath is 1.2rem, and the two beats would then need
+     different overrides to end up with the same air. See `.hero p.lede`. */
+  margin: 0.42em 0 0;
   letter-spacing: 0.005em;
 }
 
@@ -461,6 +510,12 @@ main {
   color: var(--paper-dim);
   max-width: var(--measure);
   line-height: 1.55;
+  /* The air under a headline, and it is deliberately vh-scaled as well as
+     rem-scaled. An `em` gap under a headline grows with the *headline*, which
+     at 4rem display size is the wrong curve entirely — it would be 40px on a
+     desktop and 15px on a phone, which is the opposite of what a narrow screen
+     needs. This holds a real gap at every size. */
+  margin-top: clamp(2rem, 5.5vh, 3.25rem);
 }
 
 /* Beat two, on the opposite margin from beat one. `margin-left: auto` as well as
@@ -752,18 +807,25 @@ main {
   }
 
   /* On a phone the copy column is the full width, so there is no gutter to put
-     the cue in and it has to go back under the text. That only works if the
-     hero ends where the screen does: the top padding comes down from 20vh and
-     the bottom opens up by the cue's own height, so the copy settles above it
-     instead of the cue sitting on the last line. */
-  .hero {
-    padding-top: 7rem;
-    padding-bottom: 4.5rem;
-  }
-
+     the cue in and it has to go back under the text. */
   .scroll-cue {
     left: var(--gutter);
     right: auto;
+  }
+
+  /* No vertical padding on the section itself any more, only that margin. It
+     used to carry 7rem of it — the hero measured one screen, so the section had
+     to end exactly where the screen did for the cue to sit under the copy
+     rather than on it. The beats set their own height and their own padding
+     now, so keeping this stacked a second 7rem above beat one: at 320x800 the
+     copy started 224px down and beat one ran from 112 to 912, which put its own
+     last line 56px below the fold on the screen it is supposed to fill. The
+     beat's `clamp(5.5rem, 14vh, 8rem)` is 112px there and already clears the
+     status rail. The cue does not need the section to be short — it is pinned
+     to `100svh` by its own rule either way. */
+  .hero {
+    padding-top: 0;
+    padding-bottom: 0;
   }
 }
 
@@ -1267,20 +1329,30 @@ footer {
   margin: 0 auto;
 }
 
-/* Wider than the 16ch a short title needs. A sentence-shaped heading at the
-   act's own size wants to break in two, not six, and 24ch is where it does —
-   the act is pinned to one screen, so a heading that wraps to six lines pushes
-   the column past the viewport it is held in. */
+/* Wider than the 16ch a short title needs, and with its own step down to the
+   prose. A sentence-shaped heading at the act's own size wants to break in two,
+   not six, and 24ch is where it does — the act is pinned to one screen, so a
+   heading that wraps to six lines pushes the column past the viewport it is
+   held in. (The break itself is authored in the markup now, so the measure is
+   only a guard against a wider one.)
+
+   The margin is the base `1.5rem` from `h2.section-title` opened up: a 2.8rem
+   heading sitting 24px above its own paragraph reads as one block rather than
+   as a claim and the sentence about it. Measured in vh as well as rem, like
+   every other gap in this column — the stage is exactly one screen tall, so a
+   short viewport has to take the space back from somewhere. */
 .about-overlay .section-title {
   max-width: 24ch;
+  margin-bottom: clamp(1.5rem, 4vh, 2.4rem);
 }
 
-/* Unused since 2026-09-15, and deliberately kept: this is the site's only
-   Façade Est call site, the face is already subset and self-hosted, and a
-   browser does not fetch a face nothing matches. Reinstating it is a class name
-   rather than a re-download. The comment that used to justify the styling below
-   described three words of the About heading, which no longer exist — the
-   heading is one face throughout and the stamp above it is Departure Mono. */
+/* Unused since 2026-09-15 — the About heading is one face throughout and the
+   stamp above it carries the act's display moment instead. Kept deliberately:
+   the face is already subset and self-hosted, and a browser does not fetch a
+   face nothing matches, so reinstating it is a class name rather than a
+   re-download. `.about-stamp` reaches Façade through `--font-facade` directly
+   rather than through this rule, since it wants the face at its own size and
+   tracking rather than nudged into optical balance with Space Grotesk. */
 .facade {
   font-family: var(--font-facade);
   font-weight: 400;
@@ -1291,9 +1363,11 @@ footer {
 }
 
 /* The stamp: the act's one display moment, and the only string on the page that
-   arrives instead of being read. Departure Mono, because this is machine output
-   and the face is what says so — the same argument the hero's headline makes at
-   the same kind of size.
+   arrives instead of being read. Façade Est, which is the site's one ornamental
+   face — heavy planes that read as *impressed* into the page, which is what a
+   stamp is doing. Departure Mono made the same claim the scramble already
+   makes on its own ("this is machine output") and spent the act's only display
+   moment in the same face as the code blocks two acts up.
 
    It opens the act now, above the heading, so it is the thing a reader meets
    first and the heading reads as the sentence explaining it. Centred, and the
@@ -1305,17 +1379,28 @@ footer {
    independently authored clamps drift back together through the middle of their
    range: at 1200px a 3.4vw heading and a 3.6vw stamp differ by half a pixel.
 
+   Flex, so the descent-free box reserved below is optically centred rather than
+   top-aligned. Façade Est is proportional where Departure Mono was fixed-width,
+   so a wrapped line is now a real case and not a pathological one — see the
+   reservation's own note.
+
    The air on both sides is what makes this a separate beat rather than a first
    line of the heading. It is measured in vh as well as rem — this act is pinned
    to exactly one screen, so the space around the stamp is the first place a
    short viewport takes anything back. */
 .about-stamp {
-  font-family: var(--font-terminal);
+  font-family: var(--font-facade);
   font-weight: 400;
   font-size: clamp(2.61rem, 4.93vw, 4.06rem);
   line-height: 1.06;
-  letter-spacing: 0.005em;
+  /* Wider than the 0.005em the monospace face took. Façade's advances vary by
+     3.4x between its narrowest and widest glyph, so at this size the string
+     needs the tracking opened slightly or the heavy planes touch. */
+  letter-spacing: 0.01em;
   color: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   /* A dark-green shadow, not a glow. The mint `--glow` at this size reads as
      neon and starts competing with the portrait behind it; this is the same
@@ -1347,8 +1432,15 @@ footer {
   /* Every gap in this act is measured in vh as well as rem: the stage is
      exactly one screen tall and hides its overflow, so a short viewport has to
      take the space back from somewhere, and the gutters are the cheapest place
-     to find it. */
-  margin: clamp(1.2rem, 4vh, 2.4rem) 0 0;
+     to find it.
+
+     The bottom margin is the column's own floor. Without it the fact rows run
+     straight into the bottom of the copy block and the act reads as though it
+     was cut off rather than composed — and since the stage centres its column,
+     the margin splits, so the same value buys air above the stack as well as
+     below it. `.about-overlay` is a flex item, so this margin does not collapse
+     out through it. */
+  margin: clamp(1.5rem, 4vh, 2.6rem) 0 clamp(1.25rem, 3.4vh, 2.1rem);
   padding: 0;
   display: grid;
   gap: clamp(0.35rem, 1vh, 0.55rem);
@@ -1416,22 +1508,42 @@ footer {
   }
 }
 
-/* Below this width the phrase is wider than the copy column at any size that is
-   still larger than the heading, so it sets on two lines.
+/* Below this width the string can be wider than the copy column, so it has room
+   to set on two lines — and the box is held at two lines from the start. The
+   string is one character until the playhead reaches the window, and without
+   the reservation everything below the stamp would jump down the screen
+   part-way through the decode.
 
-   579px is measured, not guessed, and it moved when the stamp grew. The string
-   is 19 characters at a fixed 0.6384em each, so 509px at the 2.61rem floor —
-   and the floor is what applies here, since the `4.93vw` middle term only takes
-   over at 847px. The available width is `0.88 x viewport` above 400px (both
-   gutters are 6vw, and the overlay's 1100px cap never binds down here), so the
-   two cross at 578.4. Probed either side: two lines at 578, one at 580. This
-   used to say 450, which was right for the old 1.13x stamp and would now leave
-   a 130px band of viewports where the phrase silently becomes two lines.
+   815 is measured against the *worst case*, not the average, because the width
+   is no longer constant: Departure Mono was fixed-pitch, so the string was
+   12.13em on every frame, where Façade Est's advances run 0.27em for an `I` to
+   0.927em for an `@`. Nineteen random characters can therefore reach
+   `18 x (0.927 + 0.01) + (0.30 + 0.01) = 17.18em` once the `0.01em` tracking is
+   counted, and at the 2.61rem floor — the floor is what applies below 847px,
+   where the `4.93vw` middle term takes over — that is 717px against an
+   available `0.88 x viewport`. The two cross at 815.1.
 
-   The box is held at two lines from the start. The string is one character
-   until the playhead reaches the window, and without the reservation everything
-   below the stamp would jump down the screen part-way through the decode. */
-@media (max-width: 578px) {
+   Reserving for a bound that is only *reachable* rather than *likely* is the
+   point. A typical draw is 9.49em — the same drawn from the same set averages
+   0.51em a character — and the resolved phrase is 9.17em, so the two land
+   within a few pixels of each other and the string is one line almost always;
+   across two million simulated draws the widest was 12.83em, still under the
+   threshold. What the reservation buys is that below 815 the layout *can* move
+   and above it it cannot, and a scramble that jumps to two lines for one frame
+   and back is a visible flicker. 44px of air is the cheaper side of that trade,
+   and the font is pinned to its 41.76px floor across this whole range, so the
+   extra height does not scale.
+
+   It holds at the narrow end too, which is worth stating because the box gets
+   tighter as the viewport does: three lines at 320px would need a 13.03em draw,
+   past anything two million simulated draws produced.
+
+   Below roughly 435px the resolved phrase needs two lines of its own, so the
+   reservation is the honest height there rather than spare room. Between 435
+   and 815 it is one line of text in a two-line box, and the flex centring on
+   `.about-stamp` splits the difference into 22px above and 22px below — which
+   is air this column was asked for anyway. */
+@media (max-width: 815px) {
   .about-stamp {
     min-height: calc(2 * 1.06em);
   }
@@ -1457,7 +1569,7 @@ footer {
    the air around it is what makes it a moment rather than a line. */
 @media (max-height: 800px), (max-width: 450px) {
   .about-overlay .section-title {
-    margin-bottom: clamp(0.6rem, 1.8vh, 1rem);
+    margin-bottom: clamp(0.8rem, 2.2vh, 1.35rem);
   }
 
   .about-stamp {
@@ -1465,7 +1577,8 @@ footer {
   }
 
   .about-facts {
-    margin-top: clamp(0.6rem, 1.8vh, 1.1rem);
+    margin-top: clamp(0.8rem, 2.2vh, 1.35rem);
+    margin-bottom: clamp(0.7rem, 2vh, 1.2rem);
     gap: clamp(0.2rem, 0.6vh, 0.35rem);
   }
 
