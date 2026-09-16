@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { LivingField } from './LivingField';
 import { BootLine } from './BootLine';
 import { prefersReducedMotion } from '../hooks/useReducedMotion';
 
@@ -44,7 +43,6 @@ export function HeroScene() {
 
     const content = act.querySelector('.hero-content');
     const cue = act.querySelector('.scroll-cue');
-    const field = act.querySelector('.hero-canvas');
     const intro = act.querySelectorAll('.hero-intro');
     const beatTwo = act.querySelector('.hero-beat-two');
 
@@ -98,38 +96,41 @@ export function HeroScene() {
     // an empty viewport. Beat two is the last thing anyone reads here, so it is
     // the thing whose exit the handoff should be timed to.
     //
-    // Timed to the end of the read rather than to the end of the beat, which is
-    // the difference between the two probes. Beat two's paragraph finishes
-    // arriving around 900px of scroll; starting the dissolve at `bottom 80%`
-    // puts it at 1080, so the paragraph is still being read when it starts to
-    // go. At `bottom 60%` the paragraph's last line has risen to 290px from the
-    // top of the screen before anything moves — the beat is finished with
-    // before it is given away. The end stays clear of the act's own boundary at
-    // 1800, so the hero is fully released while the next act is still arriving
-    // underneath it rather than after it has already arrived.
+    // The percentages are set against where the copy actually sits inside that
+    // beat, and the copy moved when beat two was top-aligned: its headline now
+    // starts around 1000 rather than 1250, and the paragraph ends around 1390.
+    // Beat two runs 900–1800, so:
+    //
+    //   `bottom 90%` → 1800 − 810 = 990 — the headline's top row has just
+    //   reached the top of the screen, which is the same moment the old
+    //   `bottom 60%` picked before the copy moved up. The paragraph is still
+    //   mid-screen when the fade starts, so the beat is finished with before it
+    //   is given away.
+    //   `bottom 45%` → 1800 − 405 = 1395 — the copy is clear of the screen and
+    //   the act still has 405px to run, so the hero is fully released while the
+    //   next act is still arriving underneath it rather than after it has
+    //   already arrived.
     const handoff = gsap.timeline({
       defaults: { ease: 'none' },
       scrollTrigger: {
         trigger: beatTwo,
-        start: 'bottom 60%',
-        end: 'bottom 15%',
+        start: 'bottom 90%',
+        end: 'bottom 45%',
         scrub: 0.4,
       },
     });
 
-    handoff
-      // Blur is doing real work in that tween — it bridges the crossfade so the
-      // eye reads one thing receding rather than two things overlapping. It's
-      // applied to a single element for exactly that reason; the same trick
-      // across five project cards would cost five offscreen renders a frame.
-      .to(content, { y: -80, opacity: 0, filter: 'blur(6px)', duration: 1 }, 0)
-      // The particle field thins out but doesn't go to zero. A section that
-      // empties completely spends its exit as a blank rectangle sliding up the
-      // screen; keeping a trace means the hero is still *something* while the
-      // next act arrives underneath it. (The fluid wallpaper is not part of
-      // this timeline — it sits behind every act and runs its own scroll
-      // response, so the hero releasing must not switch it off.)
-      .to(field, { opacity: 0.4, duration: 1 }, 0);
+    // Blur is doing real work in that tween — it bridges the crossfade so the
+    // eye reads one thing receding rather than two things overlapping. It's
+    // applied to a single element for exactly that reason; the same trick
+    // across five project cards would cost five offscreen renders a frame.
+    //
+    // This is the whole of the timeline. It used to carry a second tween that
+    // thinned out the hero's particle field as the copy left; the field is gone
+    // (the live wallpaper is the only thing back there now), and the fluid
+    // wallpaper was never part of this — it sits behind every act and runs its
+    // own scroll response, so the hero releasing must not switch it off.
+    handoff.to(content, { y: -80, opacity: 0, filter: 'blur(6px)', duration: 1 }, 0);
 
     return () => {
       entrance.kill();
@@ -143,7 +144,6 @@ export function HeroScene() {
   return (
     <div className="act act-hero" ref={actRef}>
       <section className="hero">
-        <LivingField />
         <div className="hero-veil" aria-hidden />
 
         <div className="hero-content">
@@ -200,12 +200,20 @@ export function HeroScene() {
               the site's shared scrubbed entrance, so the headline and its
               paragraph come up over a quarter-screen of scrolling with the
               reader's own movement driving them; nothing is animating to somebody
-              who has not asked for it yet. */}
+              who has not asked for it yet.
+
+              Its copy sits at the *top* of its screen rather than centred in it
+              — `.hero-beat-two` in the stylesheet, which is where the reason
+              lives. The short version is that centring it put its headline 350px
+              below the fold, so a reader got a third of a screen of wall before
+              the second half of the claim showed up. */}
           <div className="hero-beat hero-beat-two">
             <p className="hero-punch hero-beat-right" data-reveal>
               Interface that feels,
               <br />
-              Design that moves.
+              Design that moves
+              <br />
+              with you.
             </p>
             <p className="lede hero-beat-right" data-reveal>
               The design half is not decoration. It is where a system becomes

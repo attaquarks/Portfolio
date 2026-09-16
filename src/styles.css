@@ -313,17 +313,8 @@ main {
   padding: 0 var(--gutter);
 }
 
-/* `inset: 0` alone does NOT stretch a replaced element — see .fluid-media. */
-.hero-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-}
-
-/* Sits above the particle field and below the copy, so the text has a value
-   floor to sit on no matter where the bloom happens to be.
+/* Sits above the wallpaper and below the copy, so the text has a value floor to
+   sit on no matter where the bloom happens to be.
 
    It returns to fully transparent at the section's own bottom edge, which is
    the whole reason it's shaped this way. The wallpaper behind it is fixed and
@@ -347,8 +338,12 @@ main {
    the beats — under the empty gap, with both paragraphs sitting on bare
    wallpaper. `background-size: 100% 100svh` with the second layer offset by one
    screen keeps the original gradient exactly as it was drawn, one copy per
-   beat. The second pool's centre moves right because beat two is set on the
-   other margin and the pool has to follow the text it exists to hold up.
+   beat. The pool follows the copy it exists to hold up, in both axes: the
+   second one's centre moved right because beat two is set on the other margin,
+   and moved up to 33% when beat two's copy was top-aligned and its centre rose
+   from about 46% of the screen to about 33%. A pool that stayed put would have
+   left the headline's top row sitting on the weak edge of its own gradient,
+   which is the one part of the copy most likely to be over a bright bloom.
 
    The band underneath is deliberately not tiled with them: it has to run the
    *whole* section and return to zero at the real bottom edge, and repeating a
@@ -366,7 +361,7 @@ main {
       rgba(18, 17, 15, 0) 76%
     ),
     radial-gradient(
-      88% 62% at 72% 46%,
+      88% 62% at 72% 33%,
       rgba(18, 17, 15, 0.86) 0%,
       rgba(18, 17, 15, 0.5) 46%,
       rgba(18, 17, 15, 0) 76%
@@ -423,9 +418,38 @@ main {
 
 /* The second beat's exit is what the handoff fades through, so it is given a
    little more tail than the first. Without it the copy sits against the section
-   boundary and the dissolve has nowhere to happen. */
+   boundary and the dissolve has nowhere to happen.
+
+   Beats one and two are the same height and hold the same kind of copy, and they
+   used to be laid out the same way. They aren't any more, and the difference is
+   the only thing this rule says: beat two's copy is *top*-aligned instead of
+   centred.
+
+   The reason is the gap between them. Centred, beat two's headline landed 351px
+   into its own screen — so the last line of beat one stopped at 663 and the next
+   word on the page did not arrive until 1251, which is 588px of nothing, more
+   than half a screen, in the middle of a two-screen hero. Nothing fills it: it
+   is inside the hero, so no later act is sliding up through it the way one
+   arrives under beat two's tail. Top-aligned, the headline starts 99px into its
+   screen and the void is down to 336px — the fold-to-copy air of a normal
+   editorial beat rather than a hole.
+
+   The padding-top is still headroom for the fixed dock, and that is now
+   load-bearing in a way it wasn't: with the copy at the top of the beat, the
+   moment beat two exactly fills the screen is the moment its headline is 99px
+   from the top, which has to clear the dock. */
 .hero-beat-two {
+  justify-content: flex-start;
+  padding-top: clamp(4.5rem, 11vh, 6.5rem);
   padding-bottom: clamp(5rem, 14vh, 9rem);
+}
+
+/* In beat two the punch is the first thing in the beat, so its top margin is not
+   separating it from anything — it is a second helping of the padding above it.
+   Beat one keeps the margin: there it sits under the roles line, which is what it
+   was written for. */
+.hero-beat-two .hero-punch {
+  margin-top: 0;
 }
 
 .hero-eyebrow {
