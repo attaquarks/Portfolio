@@ -182,6 +182,22 @@ section {
    too long and the sequence finishes early, leaving a stretch of scroll where
    nothing happens; these are tuned to end just as the section releases. */
 
+/* ---------- On `svh`, and the fallback in front of every one ----------
+   Every viewport-relative height below is written as a pair: a `vh` value
+   first, then the `svh` value. The cascade does the rest. A browser that
+   understands `svh` gets exactly the layout it always had — the later
+   declaration wins and the earlier one is dead — and one that does not gets a
+   layout instead of a dropped declaration.
+
+   The second half is not hypothetical. `height: 185svh` on an act and
+   `height: 100svh` on a sticky stage are simply invalid on a browser without
+   the unit — Android Chrome below 108, iOS Safari below 15.4, which is what an
+   un-updated budget Android is running — so they are thrown away. The sticky
+   stages then have no height, the acts lose the scroll length that *is* their
+   timeline, and the page collapses into a stack of overlapping sections. `vh`
+   is the wrong unit on a phone, which is the whole reason `svh` is here; a
+   wrong unit beats no height at all. */
+
 /* The opening is two beats now — the systems half, then the interface half —
    so it is taller than one screen and scrolls like any other section rather
    than pinning. Nothing is cut off at any viewport height, and the second
@@ -194,17 +210,20 @@ section {
 
 .act-hero .hero {
   position: relative;
+  min-height: 100vh;
   min-height: 100svh;
   overflow: hidden;
 }
 
 .act-stack {
+  height: 185vh;
   height: 185svh;
 }
 
 .act-stack .stack-section {
   position: sticky;
   top: 0;
+  min-height: 100vh;
   min-height: 100svh;
   display: flex;
   align-items: center;
@@ -373,7 +392,9 @@ main {
       rgba(18, 17, 15, 0.4) 93%,
       rgba(18, 17, 15, 0) 100%
     );
+  background-size: 100% 100vh, 100% 100vh, 100% 100%;
   background-size: 100% 100svh, 100% 100svh, 100% 100%;
+  background-position: 0 0, 0 100vh, 0 0;
   background-position: 0 0, 0 100svh, 0 0;
   background-repeat: no-repeat;
 }
@@ -409,6 +430,7 @@ main {
    centres the copy in what is left once the dock and the fold have taken their
    share; it is headroom for the fixed dock rather than an aesthetic offset. */
 .hero-beat {
+  min-height: 100vh;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
@@ -571,6 +593,7 @@ main {
      section. The hero is taller than a viewport now, so `bottom: 2rem` would
      have parked the cue under the second beat, where nobody needs to be told
      to scroll. */
+  top: calc(100vh - 3.75rem);
   top: calc(100svh - 3.75rem);
   /* The right gutter, not the left. It used to sit under the copy's left edge
      because everything under the copy was empty padding; now the second beat
@@ -1022,7 +1045,9 @@ h2.section-title {
 .constellation {
   position: sticky;
   top: 0;
+  height: 100vh;
   height: 100svh;
+  margin-bottom: -100vh;
   margin-bottom: -100svh;
   z-index: 0;
   pointer-events: none;
@@ -1049,6 +1074,17 @@ footer {
 .constellation-canvas {
   width: 100%;
   height: 100%;
+}
+
+/* A phone reclaims GPU contexts routinely — backgrounding under memory pressure,
+   a driver reset, thermal eviction. Drawing simply stops while that lasts, and
+   what is left on screen is the last frame, held at full opacity over the whole
+   section because the gate above only re-reads on scroll and cannot correct
+   itself. That reads as the page having frozen rather than as the canvas having
+   failed, so the canvas is taken out of the picture until it can draw again.
+   three.js rebuilds its caches on restore and the attribute comes off with it. */
+.constellation[data-lost='true'] .constellation-canvas {
+  visibility: hidden;
 }
 
 .project-field {
@@ -1241,12 +1277,14 @@ footer {
    leaves the portrait resolve and the copy reveal moving at exactly the speed
    they moved at before there was a stamp. */
 .act-about {
+  height: 377vh;
   height: 377svh;
 }
 
 .about-stage {
   position: sticky;
   top: 0;
+  height: 100vh;
   height: 100svh;
   overflow: hidden;
   display: flex;
@@ -1989,6 +2027,7 @@ footer a:hover {
      motion is switched off. */
   .constellation {
     position: relative;
+    height: 42vh;
     height: 42svh;
     margin-bottom: 0;
     opacity: calc(var(--constellation-opacity, 0) * 0.5);

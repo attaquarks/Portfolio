@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { prefersReducedMotion } from '../hooks/useReducedMotion';
+import { readCapability } from '../hooks/useDeviceTier';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -35,6 +36,11 @@ gsap.registerPlugin(ScrollTrigger);
  * 3. **It stops when it is off screen.** The field belongs to the hero. Once the
  *    constellation takes over, this stops submitting frames entirely rather than
  *    rendering a layer at zero opacity.
+ *
+ * Two things below are new, and both are about phones rather than about speed.
+ * They are called out where they happen: the fragment precision, which is the
+ * reason the wallpaper was **missing** on mobile rather than merely slow, and
+ * the context-loss handling, which is the reason it would have stayed missing.
  */
 
 /** Long-edge cap for the render buffer. See note 1 above. */
@@ -42,6 +48,14 @@ const MAX_EDGE = 480;
 
 /** ~30fps. The motion is slow enough that the extra 30 frames buy nothing. */
 const FRAME_MS = 33;
+
+/**
+ * ~20fps, for devices that say they are short of cores or memory. The field's
+ * own motion is glacial — a whole warp cycle takes tens of seconds — so halving
+ * the cadence is invisible, and on a phone the point is to leave the frame
+ * budget to the constellation and the scroll.
+ */
+const FRAME_MS_LOW = 50;
 
 const VERT = `
 attribute vec2 a_pos;
@@ -51,10 +65,30 @@ void main() {
   gl_Position = vec4(a_pos, 0.0, 1.0);
 }`;
 
-/* Domain-warped value noise. mediump throughout: this runs on integrated parts
-   where highp is emulated, and nothing here needs the precision. */
+/*
+ * `highp`, and this is the whole of the mobile fix.
+ *
+ * This shader used to declare `precision mediump float`, on the reasoning that
+ * nothing here needs more than half precision. On a desktop that is true and
+ * harmless: every desktop GL implementation runs `mediump` at fp32 regardless.
+ * On a phone it is neither. `mediump` IS fp16 there, and fp16 has 10 bits of
+ * mantissa and a ceiling of 65504 — which the hash below walks straight
+ * through. `dot(p, vec2(127.1, 311.7))` reaches ~1e4 for the cell coordinates
+ * this fbm generates, and multiplying that by 43758 overflows to infinity, so
+ * `sin(inf)` is NaN, and NaN painted across the hero is a black rectangle. The
+ * poster underneath never got a chance: the canvas sits on top of it at
+ * opacity 1, so the layer looked *loaded* while showing nothing.
+ *
+ * That is the reported "the main wallpaper background does not load at all",
+ * and it is a precision question, not a performance one. Asking for highp
+ * gives every real mobile GPU fp32 and restores the exact field the desktop
+ * has always drawn. A device that genuinely cannot do highp in a fragment
+ * shader fails to compile, `buildScene` returns null, and the layer falls back
+ * to the poster — which is a finished frame of this same piece, so the hero
+ * still has its colour. Never a black rectangle.
+ */
 const FRAG = `
-precision mediump float;
+precision highp float;
 varying vec2 v_uv;
 uniform vec2 u_res;
 uniform float u_time;
@@ -141,6 +175,83 @@ function rgb(name: string, fallback: string): [number, number, number] {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 
+/**
+ * Everything that lives in the GL context. Held together so it can be thrown
+ * away and rebuilt as one unit, which is what a lost context requires: the
+ * context object survives, every object inside it does not.
+ */
+interface Scene {
+  program: WebGLProgram;
+  vs: WebGLShader;
+  fs: WebGLShader;
+  buffer: WebGLBuffer;
+  uRes: WebGLUniformLocation | null;
+  uTime: WebGLUniformLocation | null;
+}
+
+function buildScene(gl: WebGLRenderingContext): Scene | null {
+  const vs = compile(gl, gl.VERTEX_SHADER, VERT);
+  const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
+  if (!vs || !fs) {
+    if (vs) gl.deleteShader(vs);
+    if (fs) gl.deleteShader(fs);
+    return null;
+  }
+
+  const program = gl.createProgram();
+  if (!program) return null;
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    gl.deleteProgram(program);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    return null;
+  }
+  gl.useProgram(program);
+
+  const buffer = gl.createBuffer();
+  if (!buffer) {
+    gl.deleteProgram(program);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    return null;
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 3, -1, -1, 3]),
+    gl.STATIC_DRAW
+  );
+  const loc = gl.getAttribLocation(program, 'a_pos');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+  // Uniform state belongs to the program, so it is set here and not at the
+  // call site — a restored context needs all of it back.
+  gl.uniform3fv(gl.getUniformLocation(program, 'u_ink'), rgb('--ink', '#12110f'));
+  gl.uniform3fv(gl.getUniformLocation(program, 'u_deep'), rgb('--glow-dim', '#2c8f77'));
+  gl.uniform3fv(gl.getUniformLocation(program, 'u_glow'), rgb('--glow', '#4fe8c4'));
+  gl.uniform3fv(gl.getUniformLocation(program, 'u_paper'), rgb('--paper', '#ece7dd'));
+
+  return {
+    program,
+    vs,
+    fs,
+    buffer,
+    uRes: gl.getUniformLocation(program, 'u_res'),
+    uTime: gl.getUniformLocation(program, 'u_time'),
+  };
+}
+
+function disposeScene(gl: WebGLRenderingContext, scene: Scene) {
+  gl.deleteBuffer(scene.buffer);
+  gl.deleteProgram(scene.program);
+  gl.deleteShader(scene.vs);
+  gl.deleteShader(scene.fs);
+}
+
 export function FluidBackground() {
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -169,46 +280,33 @@ export function FluidBackground() {
     // painted and is a complete answer. Nothing to clean up, nothing to log.
     if (!gl) return;
 
-    const vs = compile(gl, gl.VERTEX_SHADER, VERT);
-    const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
-    const program = vs && fs ? gl.createProgram() : null;
-    if (!vs || !fs || !program) return;
+    const frameMs = readCapability().lowPower ? FRAME_MS_LOW : FRAME_MS;
 
-    gl.attachShader(program, vs);
-    gl.attachShader(program, fs);
-    gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
-    gl.useProgram(program);
+    let scene = buildScene(gl);
+    if (!scene) return;
 
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([-1, -1, 3, -1, -1, 3]),
-      gl.STATIC_DRAW
-    );
-    const loc = gl.getAttribLocation(program, 'a_pos');
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-
-    const uRes = gl.getUniformLocation(program, 'u_res');
-    const uTime = gl.getUniformLocation(program, 'u_time');
-    gl.uniform3fv(gl.getUniformLocation(program, 'u_ink'), rgb('--ink', '#12110f'));
-    gl.uniform3fv(gl.getUniformLocation(program, 'u_deep'), rgb('--glow-dim', '#2c8f77'));
-    gl.uniform3fv(gl.getUniformLocation(program, 'u_glow'), rgb('--glow', '#4fe8c4'));
-    gl.uniform3fv(gl.getUniformLocation(program, 'u_paper'), rgb('--paper', '#ece7dd'));
-
-    const resize = () => {
-      const ratio = window.innerWidth / Math.max(window.innerHeight, 1);
+    const resize = (force = false) => {
+      // Measured off the canvas' own box, not the window, and on mobile that is
+      // not a distinction without a difference. The layer is `position: fixed`,
+      // so iOS sizes it to the *layout* viewport and leaves it alone; the URL
+      // bar collapsing moves the visual viewport, which is what `innerHeight`
+      // reports. Sizing from the box means the toolbar animation does not read
+      // as a resize at all.
+      const w0 = canvas.clientWidth || window.innerWidth;
+      const h0 = canvas.clientHeight || window.innerHeight;
+      const ratio = w0 / Math.max(h0, 1);
       const w = Math.max(2, Math.round(ratio >= 1 ? MAX_EDGE : MAX_EDGE * ratio));
       const h = Math.max(2, Math.round(ratio >= 1 ? MAX_EDGE / ratio : MAX_EDGE));
-      if (canvas.width === w && canvas.height === h) return;
+      // The early return is what keeps a resize from reallocating the drawing
+      // buffer, so it has to be defeatable: after a context restore the size is
+      // unchanged but the viewport and `u_res` are gone with the context.
+      if (!force && canvas.width === w && canvas.height === h) return;
       canvas.width = w;
       canvas.height = h;
       gl.viewport(0, 0, w, h);
-      gl.uniform2f(uRes, w, h);
+      if (scene) gl.uniform2f(scene.uRes, w, h);
     };
-    resize();
+    resize(true);
 
     let raf = 0;
     let last = 0;
@@ -217,14 +315,18 @@ export function FluidBackground() {
     // frames — a background nobody is looking at should cost nothing.
     let visible = true;
     let shown = document.visibilityState === 'visible';
+    // Set while the GPU has taken the context away. Nothing may run, and
+    // nothing may claim to have painted.
+    let lost = false;
     const started = performance.now();
 
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
-      if (now - last < FRAME_MS) return;
+      if (!scene || lost || gl.isContextLost()) return;
+      if (now - last < frameMs) return;
       last = now;
 
-      gl.uniform1f(uTime, (now - started) / 1000);
+      gl.uniform1f(scene.uTime, (now - started) / 1000);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
       if (!painted) {
@@ -235,7 +337,7 @@ export function FluidBackground() {
     };
 
     const sync = () => {
-      const run = visible && shown;
+      const run = !lost && visible && shown;
       if (run && !raf) {
         last = 0;
         raf = requestAnimationFrame(tick);
@@ -246,13 +348,67 @@ export function FluidBackground() {
     };
     sync();
 
+    /**
+     * A phone takes the context away routinely — backgrounding the tab under
+     * memory pressure, a driver reset, a thermal eviction — and it hands it
+     * back when it feels like it. Unhandled, the first loss is permanent and
+     * silent: the canvas keeps its box and its last contents, `data-live` stays
+     * set, and the hero wears a frozen or blank rectangle for the rest of the
+     * session. That is very likely the second half of what was reported.
+     *
+     * `preventDefault` is not optional housekeeping here. Without it the browser
+     * will not fire `webglcontextrestored` at all.
+     */
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      lost = true;
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+      // Drop the live flag so the poster crossfades back in over the dead
+      // canvas, and drop the scene: every object in it died with the context.
+      if (scene) disposeScene(gl, scene);
+      scene = null;
+      painted = false;
+      delete host.dataset.live;
+    };
+
+    const onContextRestored = () => {
+      scene = buildScene(gl);
+      if (!scene) return; // poster stays; a second failure is a real answer
+      lost = false;
+      painted = false;
+      // The canvas attributes survived the loss, so the size check would skip
+      // the work that has to happen — viewport and `u_res` went with the context.
+      resize(true);
+      sync();
+    };
+
+    canvas.addEventListener('webglcontextlost', onContextLost);
+    canvas.addEventListener('webglcontextrestored', onContextRestored);
+
     const onVisibility = () => {
       shown = document.visibilityState === 'visible';
       sync();
     };
     document.addEventListener('visibilitychange', onVisibility);
 
-    const onResize = () => resize();
+    /**
+     * Coalesced, because on a phone `resize` is not about resizing.
+     *
+     * iOS fires it continuously while the URL bar collapses, and every event
+     * lands on a different `innerHeight` — which is a different aspect ratio,
+     * which is a new drawing buffer, reallocated in the middle of the scroll.
+     * That is a per-frame GL allocation for a toolbar animation on a blurred
+     * 480px backdrop that cannot show the difference. Waiting for the events to
+     * stop costs nothing visible and takes the allocation out of the scroll.
+     */
+    let resizeTimer = 0;
+    const onResize = () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => resize(), 220);
+    };
     window.addEventListener('resize', onResize);
 
     /**
@@ -298,13 +454,16 @@ export function FluidBackground() {
 
     return () => {
       if (raf) cancelAnimationFrame(raf);
+      window.clearTimeout(resizeTimer);
       zone.kill();
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('resize', onResize);
-      gl.deleteBuffer(buffer);
-      gl.deleteProgram(program);
-      gl.deleteShader(vs);
-      gl.deleteShader(fs);
+      canvas.removeEventListener('webglcontextlost', onContextLost);
+      canvas.removeEventListener('webglcontextrestored', onContextRestored);
+      if (scene) disposeScene(gl, scene);
+      // Ours to give back. A page that has navigated away and left its context
+      // allocated is a page that has spent a phone's whole context budget for
+      // nothing — and on mobile the constellation needs one too.
       gl.getExtension('WEBGL_lose_context')?.loseContext();
       delete host.dataset.live;
     };

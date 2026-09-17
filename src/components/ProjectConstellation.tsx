@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { prefersReducedMotion } from '../hooks/useReducedMotion';
+import { useCapability, hasWebGL } from '../hooks/useDeviceTier';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -389,7 +390,10 @@ export function ProjectConstellation({ count }: { count: number }) {
   const progress = useRef(0);
   const flourish = useRef(0);
   const [active, setActive] = useState(false);
+  const [lost, setLost] = useState(false);
+  const [render] = useState(hasWebGL);
   const reduced = prefersReducedMotion();
+  const cap = useCapability();
 
   const colors = useMemo(palette, []);
   const nodes = useMemo(() => layout(count), [count]);
@@ -402,7 +406,53 @@ export function ProjectConstellation({ count }: { count: number }) {
     return new THREE.CatmullRomCurve3([lead, ...path, tail], false, 'catmullrom', 0.4);
   }, [nodes]);
 
-  const dustCount = typeof window !== 'undefined' && window.innerWidth < 700 ? 260 : 720;
+  /**
+   * Dust is the part of this scene whose cost is a dial rather than a constant.
+   * It is thousands of additively-blended points covering the viewport, which
+   * makes it the only fill-rate-bound object in a scene that is otherwise a
+   * dozen spheres and a line strip — so it is where a phone pays, and the
+   * desktop number is kept exactly.
+   *
+   * The thresholds come from the device tier and not from a viewport width. A
+   * 700px-wide window on a desktop has a desktop GPU and no business being
+   * thinned, and a phone held in landscape is wider than the old 700px test
+   * while being the device that most needs the thinning.
+   */
+  const dustCount = cap.lowPower ? 140 : cap.mobile ? 260 : 720;
+
+  /**
+   * A phone takes the GPU context away and hands it back at will — backgrounding
+   * the tab under memory pressure, a driver reset, a thermal eviction. three.js
+   * already handles its own half of that: it stops drawing while the context is
+   * gone, and `onContextRestore` rebuilds its caches so everything re-uploads on
+   * the next render. What three does not know about is the gate above it.
+   *
+   * This layer is opaque for the whole stretch of page it belongs to. A context
+   * lost and never restored therefore leaves a frozen frame held at full opacity
+   * over the projects section for the rest of the session, and because the gate
+   * only re-reads on scroll, it never corrects itself. On a phone the sequence
+   * "switch apps, come back, scroll" is not an edge case, so this is a real way
+   * for the section to look dead — and it is the same failure the wallpaper had.
+   *
+   * Hiding the canvas while the context is gone, and unhiding it when it comes
+   * back, is the whole fix. `preventDefault` is what makes the second half
+   * possible at all: a context lost without it is never offered back.
+   */
+  useEffect(() => {
+    const canvas = hostRef.current?.querySelector('canvas');
+    if (!canvas) return;
+    const onLost = (event: Event) => {
+      event.preventDefault();
+      setLost(true);
+    };
+    const onRestored = () => setLost(false);
+    canvas.addEventListener('webglcontextlost', onLost);
+    canvas.addEventListener('webglcontextrestored', onRestored);
+    return () => {
+      canvas.removeEventListener('webglcontextlost', onLost);
+      canvas.removeEventListener('webglcontextrestored', onRestored);
+    };
+  }, []);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -504,39 +554,57 @@ export function ProjectConstellation({ count }: { count: number }) {
   }, [reduced]);
 
   return (
-    <div className="constellation" ref={hostRef} aria-hidden>
-      <Canvas
-        className="constellation-canvas"
-        dpr={[1, 1.5]}
-        frameloop={reduced ? 'demand' : active ? 'always' : 'never'}
-        camera={{ fov: 55, near: 0.1, far: 60, position: [0, 1, 9] }}
-        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-      >
-        {/* Fog in --ink so the far end of the constellation dissolves into the
-            page background instead of ending on a visible edge. With additive
-            blending the fog reads as "light that never arrives" rather than as
-            haze, which is why the far field can be dimmer than it was. */}
-        <fog attach="fog" args={[colors.ink, 7, 32]} />
-        <CameraRig curve={curve} progress={progress} reduced={reduced} />
-        <Constellation
-          nodes={nodes}
-          colors={colors}
-          progress={progress}
-          flourish={flourish}
-        />
-        <Dust count={dustCount} color={colors.glowDim} size={0.035} opacity={0.62} drift={!reduced} />
-        <Dust
-          count={Math.round(dustCount * 0.45)}
-          color={colors.cyan}
-          size={0.046}
-          opacity={0.55}
-          drift={!reduced}
-        />
-        {/* Last child on purpose: its effect has to run after every object above
-            has been attached to the scene, or it compiles a graph with holes in
-            it. */}
-        <Warmup />
-      </Canvas>
+    <div className="constellation" ref={hostRef} aria-hidden data-lost={lost ? 'true' : undefined}>
+      {render && (
+        <Canvas
+          className="constellation-canvas"
+          /* A phone's device pixel ratio is 3, and 3 is not a resolution this
+             scene needs — the nodes are soft sprites and the dust is points, so
+             the extra samples buy nothing a phone can resolve at arm's length.
+             The cap was 1.5; it drops to 1.25 on a phone (about a third fewer
+             pixels) and to 1 on a device that reports few cores, which is the
+             difference between a scene that drifts and one that stutters. */
+          dpr={cap.lowPower ? 1 : cap.mobile ? [1, 1.25] : [1, 1.5]}
+          /* `never` while the context is gone: three would no-op the draw call
+             anyway, but there is no reason to keep asking. */
+          frameloop={lost ? 'never' : reduced ? 'demand' : active ? 'always' : 'never'}
+          camera={{ fov: 55, near: 0.1, far: 60, position: [0, 1, 9] }}
+          /* MSAA on a phone is a full-screen resolve per frame for edges this
+             scene barely has — the nodes are billboards, which multisampling
+             does not antialias anyway. The line strip is the only geometry that
+             gains from it, and it does not gain enough. */
+          gl={{
+            antialias: !cap.mobile,
+            alpha: true,
+            powerPreference: 'high-performance',
+          }}
+        >
+          {/* Fog in --ink so the far end of the constellation dissolves into the
+              page background instead of ending on a visible edge. With additive
+              blending the fog reads as "light that never arrives" rather than as
+              haze, which is why the far field can be dimmer than it was. */}
+          <fog attach="fog" args={[colors.ink, 7, 32]} />
+          <CameraRig curve={curve} progress={progress} reduced={reduced} />
+          <Constellation
+            nodes={nodes}
+            colors={colors}
+            progress={progress}
+            flourish={flourish}
+          />
+          <Dust count={dustCount} color={colors.glowDim} size={0.035} opacity={0.62} drift={!reduced} />
+          <Dust
+            count={Math.round(dustCount * 0.45)}
+            color={colors.cyan}
+            size={0.046}
+            opacity={0.55}
+            drift={!reduced}
+          />
+          {/* Last child on purpose: its effect has to run after every object
+              above has been attached to the scene, or it compiles a graph with
+              holes in it. */}
+          <Warmup />
+        </Canvas>
+      )}
     </div>
   );
 }
