@@ -58,12 +58,20 @@ const LATE_END = 3.79;
  * 1366x768 has a ~650px *window*, not 768, and an earlier version of this that
  * keyed off 700px unpinned the act on most laptops while there was still 120px
  * of screen left unused below the column.
+ *
+ * The narrow clause was 740px until 2026-09-17, which is a phone height rather
+ * than a short one — a Galaxy S9 is 360x740 exactly and a J7 is 360x640, so
+ * both took this branch and were served the static act while a 360x800 phone
+ * beside them got the full reveal. The same two phones are why the wallpaper
+ * had to be fixed before this was visible at all: the reveal was never the
+ * thing failing on them, it was never being built. 620 is the CSS number, and
+ * the two must be changed together.
  */
 const isShortViewport = () =>
   typeof window !== 'undefined' &&
   (window.matchMedia('(max-height: 580px)').matches ||
     window.matchMedia('(min-width: 1200px) and (max-height: 620px)').matches ||
-    window.matchMedia('(max-width: 450px) and (max-height: 740px)').matches);
+    window.matchMedia('(max-width: 450px) and (max-height: 620px)').matches);
 
 /**
  * Paints the stamp at `t` through its scroll window.

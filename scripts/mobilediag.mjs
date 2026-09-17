@@ -326,6 +326,36 @@ const probe = `(() => {
     } : 'MISSING',
     heroH: hero ? Math.round(hero.getBoundingClientRect().height) : 'MISSING',
     mainH: main ? Math.round(main.getBoundingClientRect().height) : 'MISSING',
+    // Whether the About act is the animated (pinned, 377vh) version or the
+    // static one, and whether the column would actually fit if it were pinned.
+    // The static branch is chosen from a viewport-height guess, so the guess is
+    // only defensible against the real column height — which is this number.
+    about: (() => {
+      const act = document.querySelector('.act-about');
+      const stage = document.querySelector('.about-stage');
+      const overlay = document.querySelector('.about-overlay');
+      if (!act || !stage || !overlay) return 'MISSING';
+      const columnH = Math.round(overlay.getBoundingClientRect().height);
+      // Two discriminators for whether the scrubbed timeline was actually
+      // built, as opposed to the act merely being tall. The static branch sets
+      // the tiles to opacity 0 at mount, where the animated one leaves them at
+      // their painted 1 until the scrub moves; and the static branch leaves the
+      // finished phrase in the stamp, where the animated one has already
+      // painted it through its window at t=0, which is one character.
+      const tile = document.querySelector('.about-tile');
+      const stampEl = document.querySelector('.about-stamp-live');
+      const stampText = stampEl ? stampEl.textContent || '' : null;
+      return {
+        actH: Math.round(act.getBoundingClientRect().height),
+        stagePosition: cs(stage).position,
+        columnH,
+        // Negative once the column fits inside one screen with room to spare.
+        columnOverflowVsViewport: columnH - Math.round(innerHeight),
+        tileOpacity: tile ? cs(tile).opacity : 'MISSING',
+        stampChars: stampText ? stampText.length : null,
+        stampResolved: stampText === 'TERMINAL ENTHUSIAST',
+      };
+    })(),
     acts: [...document.querySelectorAll('.act')].map((a) => Math.round(a.getBoundingClientRect().height)),
     scrollTriggers: (window.ScrollTrigger?.getAll?.() || []).length,
     canvasesInDom: document.querySelectorAll('canvas').length,
